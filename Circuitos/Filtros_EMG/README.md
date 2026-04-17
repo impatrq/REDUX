@@ -1,0 +1,1 @@
+Simulación experimental de los filtros pasa bajos y pasa altos.
