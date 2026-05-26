@@ -1,0 +1,1 @@
+Diagrama de Bode y archivo LTSpice del filtro pasa-altos con una frecuencia de corte aproximada de 500Hz
