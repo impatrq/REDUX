@@ -1,0 +1,1 @@
+Primer diseño de kicad de la amplificación y los filtros para sEMG.
