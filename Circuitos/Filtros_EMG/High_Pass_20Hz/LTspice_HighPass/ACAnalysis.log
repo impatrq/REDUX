@@ -1,0 +1,18 @@
+LTspice 26.0.1 for Windows
+Circuit: C:\Users\Martin\Desktop\Git-Proyecto-Filtros\LTspice\ACAnalysis.net
+Start Time: Mon May 25 12:07:45 2026
+solver = Normal
+Maximum thread count: 8
+tnom = 27
+temp = 27
+method = trap
+Direct Newton iteration failed to find operating point.
+Starting Gmin stepping
+Gmin stepping succeeded in finding the operating point.
+
+Total elapsed time: 0.268 seconds.
+
+Files loaded:
+C:\Users\Martin\Desktop\Git-Proyecto-Filtros\LTspice\ACAnalysis.net
+C:\Users\Martin\AppData\Local\LTspice\lib\sub\LTC5.lib
+
