@@ -60,13 +60,13 @@
           "hatch_smoothing_level": 0,
           "hatch_smoothing_value": 0.1,
           "hatch_thickness": 1.0,
-          "min_clearance": 0.7,
+          "min_clearance": 0.5,
           "min_island_area": 10.0,
-          "min_thickness": 0.5,
+          "min_thickness": 0.25,
           "pad_connection": 1,
           "remove_islands": 0,
           "thermal_relief_gap": 0.5,
-          "thermal_relief_spoke_width": 1.0
+          "thermal_relief_spoke_width": 0.5
         }
       },
       "diff_pair_dimensions": [
@@ -211,7 +211,7 @@
       ],
       "track_widths": [
         0.0,
-        1.5
+        1.25
       ],
       "tuning_pattern_settings": {
         "diff_pair_defaults": {
@@ -502,7 +502,7 @@
     "pinned_symbol_libs": []
   },
   "meta": {
-    "filename": "Amp kicap.kicad_pro",
+    "filename": "pcb biceps completo bien hecho porfavor funciona.kicad_pro",
     "version": 3
   },
   "net_settings": {
@@ -657,17 +657,17 @@
     "subpart_id_separator": 0,
     "top_level_sheets": [
       {
-        "filename": "Amp kicap.kicad_sch",
+        "filename": "pcb biceps completo bien hecho porfavor funciona.kicad_sch",
         "name": "Raíz",
-        "uuid": "83964313-2458-46e0-8e58-f69ddba25c84"
+        "uuid": "36719909-1967-4f6d-9303-391e6a918dbc"
       }
     ],
-    "used_designators": "U1-3,J1-7,R1-11,C1-8,#PWR1-3",
+    "used_designators": "",
     "variants": []
   },
   "sheets": [
     [
-      "83964313-2458-46e0-8e58-f69ddba25c84",
+      "36719909-1967-4f6d-9303-391e6a918dbc",
       "Raíz"
     ]
   ],
