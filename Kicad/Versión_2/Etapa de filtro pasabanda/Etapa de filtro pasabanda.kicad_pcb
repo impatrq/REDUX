@@ -93,7 +93,7 @@
 		(at 128.75 98)
 		(descr "C, Rect series, Radial, pin pitch=7.50mm, length*width=10*2.5mm^2, Capacitor, http://www.wima.com/EN/WIMA_MKS_4.pdf")
 		(tags "C Rect series Radial pin pitch 7.50mm length 10mm width 2.5mm Capacitor")
-		(property "Reference" "C1"
+		(property "Reference" "47nF"
 			(at 3.75 -2.5 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -105,7 +105,7 @@
 				)
 			)
 		)
-		(property "Value" "C"
+		(property "Value" "47nf"
 			(at 3.75 2.5 0)
 			(layer "F.Fab")
 			(hide yes)
@@ -275,7 +275,7 @@
 		(at 137.75 78.05 180)
 		(descr "C, Rect series, Radial, pin pitch=7.50mm, length*width=10*2.5mm^2, Capacitor, http://www.wima.com/EN/WIMA_MKS_4.pdf")
 		(tags "C Rect series Radial pin pitch 7.50mm length 10mm width 2.5mm Capacitor")
-		(property "Reference" "C4"
+		(property "Reference" "47nF"
 			(at 3.75 -2.5 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -457,7 +457,7 @@
 		(at 136.25 89.95 180)
 		(descr "C, Rect series, Radial, pin pitch=7.50mm, length*width=10*2.5mm^2, Capacitor, http://www.wima.com/EN/WIMA_MKS_4.pdf")
 		(tags "C Rect series Radial pin pitch 7.50mm length 10mm width 2.5mm Capacitor")
-		(property "Reference" "C3"
+		(property "Reference" "39nF"
 			(at 3.75 -2.5 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -639,7 +639,7 @@
 		(at 157.58 102.5 180)
 		(descr "Resistor, Axial_DIN0207 series, Axial, Horizontal, pin pitch=10.16mm, 0.25W = 1/4W, length*diameter=6.3*2.5mm^2, http://cdn-reichelt.de/documents/datenblatt/B400/1_4W%23YAG.pdf")
 		(tags "Resistor Axial_DIN0207 series Axial Horizontal pin pitch 10.16mm 0.25W = 1/4W length 6.3mm diameter 2.5mm")
-		(property "Reference" "R8"
+		(property "Reference" "12kΩ"
 			(at 5.08 -2.37 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -1210,7 +1210,7 @@
 		(at 147.42 98.5)
 		(descr "Resistor, Axial_DIN0207 series, Axial, Horizontal, pin pitch=10.16mm, 0.25W = 1/4W, length*diameter=6.3*2.5mm^2, http://cdn-reichelt.de/documents/datenblatt/B400/1_4W%23YAG.pdf")
 		(tags "Resistor Axial_DIN0207 series Axial Horizontal pin pitch 10.16mm 0.25W = 1/4W length 6.3mm diameter 2.5mm")
-		(property "Reference" "R7"
+		(property "Reference" "180kΩ"
 			(at 5.08 -2.37 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -1403,7 +1403,7 @@
 		(at 142 70.5)
 		(descr "Resistor, Axial_DIN0207 series, Axial, Horizontal, pin pitch=10.16mm, 0.25W = 1/4W, length*diameter=6.3*2.5mm^2, http://cdn-reichelt.de/documents/datenblatt/B400/1_4W%23YAG.pdf")
 		(tags "Resistor Axial_DIN0207 series Axial Horizontal pin pitch 10.16mm 0.25W = 1/4W length 6.3mm diameter 2.5mm")
-		(property "Reference" "R4"
+		(property "Reference" "120kΩ"
 			(at 5.08 -2.37 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -1596,7 +1596,7 @@
 		(at 137.75 74 180)
 		(descr "C, Rect series, Radial, pin pitch=7.50mm, length*width=10*2.5mm^2, Capacitor, http://www.wima.com/EN/WIMA_MKS_4.pdf")
 		(tags "C Rect series Radial pin pitch 7.50mm length 10mm width 2.5mm Capacitor")
-		(property "Reference" "C5"
+		(property "Reference" "4.7nF"
 			(at 3.75 -2.5 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -1778,7 +1778,7 @@
 		(at 136.25 94 180)
 		(descr "C, Rect series, Radial, pin pitch=7.50mm, length*width=10*2.5mm^2, Capacitor, http://www.wima.com/EN/WIMA_MKS_4.pdf")
 		(tags "C Rect series Radial pin pitch 7.50mm length 10mm width 2.5mm Capacitor")
-		(property "Reference" "C2"
+		(property "Reference" "4.7nF"
 			(at 3.75 -2.5 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -2455,7 +2455,7 @@
 		(at 142 78.6)
 		(descr "Resistor, Axial_DIN0207 series, Axial, Horizontal, pin pitch=10.16mm, 0.25W = 1/4W, length*diameter=6.3*2.5mm^2, http://cdn-reichelt.de/documents/datenblatt/B400/1_4W%23YAG.pdf")
 		(tags "Resistor Axial_DIN0207 series Axial Horizontal pin pitch 10.16mm 0.25W = 1/4W length 6.3mm diameter 2.5mm")
-		(property "Reference" "R6"
+		(property "Reference" "10kΩ"
 			(at 5.08 -2.37 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -2648,7 +2648,7 @@
 		(at 153.75 114 180)
 		(descr "C, Rect series, Radial, pin pitch=7.50mm, length*width=10*2.5mm^2, Capacitor, http://www.wima.com/EN/WIMA_MKS_4.pdf")
 		(tags "C Rect series Radial pin pitch 7.50mm length 10mm width 2.5mm Capacitor")
-		(property "Reference" "C8"
+		(property "Reference" "3.3nF"
 			(at 3.75 -2.5 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -2830,7 +2830,7 @@
 		(at 137.75 69.95 180)
 		(descr "C, Rect series, Radial, pin pitch=7.50mm, length*width=10*2.5mm^2, Capacitor, http://www.wima.com/EN/WIMA_MKS_4.pdf")
 		(tags "C Rect series Radial pin pitch 7.50mm length 10mm width 2.5mm Capacitor")
-		(property "Reference" "C6"
+		(property "Reference" "39nF"
 			(at 3.75 -2.5 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -3012,7 +3012,7 @@
 		(at 140.42 90)
 		(descr "Resistor, Axial_DIN0207 series, Axial, Horizontal, pin pitch=10.16mm, 0.25W = 1/4W, length*diameter=6.3*2.5mm^2, http://cdn-reichelt.de/documents/datenblatt/B400/1_4W%23YAG.pdf")
 		(tags "Resistor Axial_DIN0207 series Axial Horizontal pin pitch 10.16mm 0.25W = 1/4W length 6.3mm diameter 2.5mm")
-		(property "Reference" "R3"
+		(property "Reference" "100Ω"
 			(at 5.08 -2.37 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -3205,7 +3205,7 @@
 		(at 152.08 74.5 180)
 		(descr "Resistor, Axial_DIN0207 series, Axial, Horizontal, pin pitch=10.16mm, 0.25W = 1/4W, length*diameter=6.3*2.5mm^2, http://cdn-reichelt.de/documents/datenblatt/B400/1_4W%23YAG.pdf")
 		(tags "Resistor Axial_DIN0207 series Axial Horizontal pin pitch 10.16mm 0.25W = 1/4W length 6.3mm diameter 2.5mm")
-		(property "Reference" "R5"
+		(property "Reference" "10kΩ"
 			(at 5.08 -2.37 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -3398,7 +3398,7 @@
 		(at 130.34 86)
 		(descr "Resistor, Axial_DIN0207 series, Axial, Horizontal, pin pitch=10.16mm, 0.25W = 1/4W, length*diameter=6.3*2.5mm^2, http://cdn-reichelt.de/documents/datenblatt/B400/1_4W%23YAG.pdf")
 		(tags "Resistor Axial_DIN0207 series Axial Horizontal pin pitch 10.16mm 0.25W = 1/4W length 6.3mm diameter 2.5mm")
-		(property "Reference" "R2"
+		(property "Reference" "68kΩ"
 			(at 5.08 -2.37 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -3906,7 +3906,7 @@
 		(at 148.25 83)
 		(descr "C, Rect series, Radial, pin pitch=7.50mm, length*width=10*2.5mm^2, Capacitor, http://www.wima.com/EN/WIMA_MKS_4.pdf")
 		(tags "C Rect series Radial pin pitch 7.50mm length 10mm width 2.5mm Capacitor")
-		(property "Reference" "C7"
+		(property "Reference" "1.5nF"
 			(at 3.75 -2.5 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -4088,7 +4088,7 @@
 		(at 147.42 106)
 		(descr "Resistor, Axial_DIN0207 series, Axial, Horizontal, pin pitch=10.16mm, 0.25W = 1/4W, length*diameter=6.3*2.5mm^2, http://cdn-reichelt.de/documents/datenblatt/B400/1_4W%23YAG.pdf")
 		(tags "Resistor Axial_DIN0207 series Axial Horizontal pin pitch 10.16mm 0.25W = 1/4W length 6.3mm diameter 2.5mm")
-		(property "Reference" "R9"
+		(property "Reference" "100kΩ"
 			(at 5.08 -2.37 0)
 			(layer "F.SilkS")
 			(hide yes)
@@ -4281,7 +4281,7 @@
 		(at 127 101.34 -90)
 		(descr "Resistor, Axial_DIN0207 series, Axial, Horizontal, pin pitch=10.16mm, 0.25W = 1/4W, length*diameter=6.3*2.5mm^2, http://cdn-reichelt.de/documents/datenblatt/B400/1_4W%23YAG.pdf")
 		(tags "Resistor Axial_DIN0207 series Axial Horizontal pin pitch 10.16mm 0.25W = 1/4W length 6.3mm diameter 2.5mm")
-		(property "Reference" "R1"
+		(property "Reference" "470Ω"
 			(at 5.08 -2.37 90)
 			(layer "F.SilkS")
 			(hide yes)
@@ -4716,7 +4716,7 @@
 		(at 157.58 110 180)
 		(descr "Resistor, Axial_DIN0207 series, Axial, Horizontal, pin pitch=10.16mm, 0.25W = 1/4W, length*diameter=6.3*2.5mm^2, http://cdn-reichelt.de/documents/datenblatt/B400/1_4W%23YAG.pdf")
 		(tags "Resistor Axial_DIN0207 series Axial Horizontal pin pitch 10.16mm 0.25W = 1/4W length 6.3mm diameter 2.5mm")
-		(property "Reference" "R10"
+		(property "Reference" "5.1kΩ"
 			(at 5.08 -2.37 0)
 			(layer "F.SilkS")
 			(hide yes)
