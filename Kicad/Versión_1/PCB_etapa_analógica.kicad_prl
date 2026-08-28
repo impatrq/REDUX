@@ -49,9 +49,7 @@
       "drc_exclusions",
       "locked_item_shadows",
       "conflict_shadows",
-      "shapes",
-      "board_outline_area",
-      "ly_points"
+      "shapes"
     ],
     "visible_layers": "ffffffff_ffffffff_ffffffff_ffffffff",
     "zone_display_mode": 0
@@ -63,7 +61,7 @@
     "ssh_key": ""
   },
   "meta": {
-    "filename": "pcb biceps completo bien hecho porfavor funciona.kicad_prl",
+    "filename": "PCB_etapa_analógica.kicad_prl",
     "version": 5
   },
   "net_inspector_panel": {
