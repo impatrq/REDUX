@@ -1,0 +1,1 @@
+Se adjuntan los esquemticos del rectificador de precision junto a su simulacion en LTspice
