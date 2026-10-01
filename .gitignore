@@ -1,0 +1,25 @@
+# Directorios de build
+build/
+build-tests/
+cmake-build-*/
+
+# Artefactos del firmware
+*.uf2
+*.elf
+*.bin
+*.hex
+*.map
+*.dis
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+*.swp
+
+# Conservar la configuración compartida de VS Code
+!.vscode/*
