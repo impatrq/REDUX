@@ -45,12 +45,19 @@ set(REDUX_HAL_SOURCES
         src/hal/hal_wdt.c
 )
 
+# Drivers de actuadores (actuators/). C portable: usan solo el HAL, nunca el SDK.
+set(REDUX_ACTUATOR_SOURCES
+        src/actuators/bts7960.c
+)
+
 # Todas nuestras fuentes (nunca las del SDK): a estas se les aplican las flags
 # estrictas y los includes de las capas. Cada fase agrega sus .c aquí.
 set(REDUX_SOURCES
         src/main.c
         src/diag/fase1_check.c
+        src/diag/fase2_check.c
         ${REDUX_HAL_SOURCES}
+        ${REDUX_ACTUATOR_SOURCES}
 )
 
 # Directorios de cabeceras de las capas del proyecto.
@@ -95,6 +102,12 @@ add_executable(fase1_check src/diag/fase1_check.c ${REDUX_HAL_SOURCES})
 pico_set_program_name(fase1_check "fase1_check")
 pico_set_program_version(fase1_check "0.1")
 redux_configure_target(fase1_check)
+
+# Programa de banco de la Fase 2 (driver BTS7960 con motor sin carga), ejecutable aparte.
+add_executable(fase2_check src/diag/fase2_check.c ${REDUX_ACTUATOR_SOURCES} ${REDUX_HAL_SOURCES})
+pico_set_program_name(fase2_check "fase2_check")
+pico_set_program_version(fase2_check "0.1")
+redux_configure_target(fase2_check)
 
 # Los avisos se tratan como errores desde el día uno, solo sobre nuestras fuentes
 # (las librerías INTERFACE del SDK agregan sus .c a estos targets, así que las flags
