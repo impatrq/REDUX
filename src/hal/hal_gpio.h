@@ -8,6 +8,10 @@
 // Es la condición segura de arranque de toda la v1.
 void hal_gpio_init(void);
 
+// Habilita (on=true) o deshabilita (on=false) ambos half-bridges del BTS7960,
+// moviendo R_EN y L_EN juntos. El sentido lo decide el lado con PWM, no estos pines.
+void hal_gpio_motor_enable(bool on);
+
 // Configura el LED de estado (GP2) como salida digital. Separado de hal_gpio_init
 // para que el programa de prueba pueda tomar el mismo pin por PWM sin conflicto.
 void hal_gpio_led_init(void);

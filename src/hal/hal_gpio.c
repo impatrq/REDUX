@@ -18,6 +18,12 @@ void hal_gpio_init(void) {
     gpio_put(PIN_MOTOR_L_EN, 0);
 }
 
+void hal_gpio_motor_enable(bool on) {
+    // Ambos enable se mueven juntos: el sentido lo fija el lado con PWM activo.
+    gpio_put(PIN_MOTOR_R_EN, on);
+    gpio_put(PIN_MOTOR_L_EN, on);
+}
+
 void hal_gpio_led_init(void) {
     gpio_init(PIN_LED);
     gpio_set_dir(PIN_LED, GPIO_OUT);
