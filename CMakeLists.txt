@@ -33,29 +33,28 @@ project(redux-firmware C CXX ASM)
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-# Add executable. Default name is the project name, version 0.1
-# Fuentes propias del firmware. Cada fase agrega sus .c a esta lista
-# (ver docs/PLAN.md). Las flags estrictas de abajo se aplican solo a estos
-# archivos, nunca a las fuentes del SDK.
-set(REDUX_SOURCES
-        src/main.c
+# Capa de abstracción de hardware (hal/). Única capa que toca el SDK junto a los
+# main.c de cada ejecutable. Se comparte entre el firmware y los programas de prueba.
+set(REDUX_HAL_SOURCES
+        src/hal/hal_time.c
+        src/hal/hal_adc.c
+        src/hal/hal_pwm.c
+        src/hal/hal_i2c.c
+        src/hal/hal_gpio.c
+        src/hal/hal_button.c
+        src/hal/hal_wdt.c
 )
 
-add_executable(redux-firmware ${REDUX_SOURCES})
+# Todas nuestras fuentes (nunca las del SDK): a estas se les aplican las flags
+# estrictas y los includes de las capas. Cada fase agrega sus .c aquí.
+set(REDUX_SOURCES
+        src/main.c
+        src/diag/fase1_check.c
+        ${REDUX_HAL_SOURCES}
+)
 
-pico_set_program_name(redux-firmware "redux-firmware")
-pico_set_program_version(redux-firmware "0.1")
-
-# Modify the below lines to enable/disable output over UART/USB
-pico_enable_stdio_uart(redux-firmware 0)
-pico_enable_stdio_usb(redux-firmware 1)
-
-# Add the standard library to the build
-target_link_libraries(redux-firmware
-        pico_stdlib)
-
-# Add the standard include files to the build
-target_include_directories(redux-firmware PRIVATE
+# Directorios de cabeceras de las capas del proyecto.
+set(REDUX_INCLUDE_DIRS
         ${CMAKE_CURRENT_LIST_DIR}/src
         ${CMAKE_CURRENT_LIST_DIR}/src/common
         ${CMAKE_CURRENT_LIST_DIR}/src/hal
@@ -65,17 +64,42 @@ target_include_directories(redux-firmware PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/src/app
 )
 
+# Librerías del SDK que usa el HAL de la Fase 1.
+set(REDUX_SDK_LIBS
+        pico_stdlib
+        hardware_adc
+        hardware_pwm
+        hardware_i2c
+        hardware_gpio
+        hardware_timer
+        hardware_watchdog
+)
+
+# Configura un ejecutable del proyecto con includes, librerías del SDK y salida USB.
+function(redux_configure_target target)
+        target_include_directories(${target} PRIVATE ${REDUX_INCLUDE_DIRS})
+        target_link_libraries(${target} ${REDUX_SDK_LIBS})
+        pico_enable_stdio_uart(${target} 0)
+        pico_enable_stdio_usb(${target} 1)
+        pico_add_extra_outputs(${target})
+endfunction()
+
+# Firmware principal.
+add_executable(redux-firmware src/main.c ${REDUX_HAL_SOURCES})
+pico_set_program_name(redux-firmware "redux-firmware")
+pico_set_program_version(redux-firmware "0.1")
+redux_configure_target(redux-firmware)
+
+# Programa de prueba de la Fase 1 (bring-up del HAL), ejecutable aparte.
+add_executable(fase1_check src/diag/fase1_check.c ${REDUX_HAL_SOURCES})
+pico_set_program_name(fase1_check "fase1_check")
+pico_set_program_version(fase1_check "0.1")
+redux_configure_target(fase1_check)
+
 # Los avisos se tratan como errores desde el día uno, solo sobre nuestras fuentes
-# (las librerías INTERFACE del SDK agregan sus .c a este target, así que las flags
+# (las librerías INTERFACE del SDK agregan sus .c a estos targets, así que las flags
 # se scopean por archivo). Ver docs/PLAN.md, sección "Estilo y herramientas".
 set_source_files_properties(${REDUX_SOURCES} PROPERTIES
         COMPILE_OPTIONS "-Wall;-Wextra;-Werror;-Wshadow;-Wconversion"
 )
-
-# Add any user requested libraries
-target_link_libraries(redux-firmware
-
-        )
-
-pico_add_extra_outputs(redux-firmware)
 
