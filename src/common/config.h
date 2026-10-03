@@ -44,6 +44,15 @@
 #define ROM_STABLE_MAX_DEG 2.0f   // dispersión máxima de las muestras al calibrar (si no, se rechaza)
 #define ANGLE_JUMP_MAX_DEG 30.0f  // salto de ángulo entre ciclos que marca falla (lo usa el supervisor, Fase 6)
 
+// --- Lógica de control pura (Fase 5) ------------------------------------------
+// Convención de ángulo (Fase 3): 0° = flexión máxima; el ángulo crece al extender.
+#define DUTY_MIN        0.15f  // piso de duty al arrancar el motor (intensidad 0)
+#define BRAKE_ZONE_DEG  15.0f  // zona antes del límite donde el factor baja de 1.0 a 0.0
+#define RAMP_UP_PER_S   1.5f   // pendiente máxima de subida del duty (1/s)
+#define RAMP_DOWN_PER_S 4.0f   // pendiente máxima de bajada y frenado del duty (1/s)
+
+_Static_assert(DUTY_MIN < DUTY_MAX, "DUTY_MIN debe ser menor que DUTY_MAX");
+
 // Nota: los parámetros del prototipo (umbrales EMG, histéresis, rango articular,
 // rampas de potencia, watchdog) se vuelcan aquí en sus fases correspondientes
 // (Fases 3, 4, 5 y 6), cada uno con su unidad en el nombre.

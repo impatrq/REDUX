@@ -67,3 +67,27 @@ redux_add_test(test_rom_calib
         ${REDUX_ROOT}/src/sensors/as5600.c
         mocks/mock_hal_i2c.c
 )
+
+# --- Fase 5 · lógica de control pura (intent, limits, power) ------------------
+redux_add_test(test_intent
+        test_intent.c
+        ${REDUX_ROOT}/src/control/intent.c
+)
+
+redux_add_test(test_limits
+        test_limits.c
+        ${REDUX_ROOT}/src/control/limits.c
+)
+
+redux_add_test(test_power
+        test_power.c
+        ${REDUX_ROOT}/src/control/power.c
+)
+
+# Simulación encadenada: usa los tres módulos de control juntos.
+redux_add_test(test_control_chain
+        test_control_chain.c
+        ${REDUX_ROOT}/src/control/intent.c
+        ${REDUX_ROOT}/src/control/limits.c
+        ${REDUX_ROOT}/src/control/power.c
+)
