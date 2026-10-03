@@ -10,6 +10,17 @@ typedef enum {
     DIR_EXT = -1,
 } direction_t;
 
+// Evento de la interfaz de usuario (ver app/ui.h). Vive acá, en common, para que
+// las capas inferiores (p. ej. sensors/rom_calib) lo reciban sin depender de app:
+// las dependencias solo bajan. La implementación concreta (ui_basic, y a futuro la
+// pantalla con teclado) traduce pulsador/serie/teclas a estos eventos.
+typedef enum {
+    UI_EV_NONE = 0,       // no hay evento pendiente
+    UI_EV_CONFIRM,        // el usuario confirma el paso actual
+    UI_EV_CANCEL,         // el usuario cancela la operación
+    UI_EV_RECALIBRATE,    // el usuario pide repetir la calibración
+} ui_event_t;
+
 // Resultado de la lógica XOR de intención (ver control/intent).
 typedef enum {
     INTENT_REST,

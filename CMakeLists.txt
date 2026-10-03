@@ -50,14 +50,28 @@ set(REDUX_ACTUATOR_SOURCES
         src/actuators/bts7960.c
 )
 
+# Drivers de sensores (sensors/). C portable: usan solo el HAL, nunca el SDK.
+set(REDUX_SENSOR_SOURCES
+        src/sensors/as5600.c
+        src/sensors/rom_calib.c
+)
+
+# Interfaz de usuario (app/). ui_basic implementa ui.h con pulsador, LED y USB.
+set(REDUX_UI_SOURCES
+        src/app/ui_basic.c
+)
+
 # Todas nuestras fuentes (nunca las del SDK): a estas se les aplican las flags
 # estrictas y los includes de las capas. Cada fase agrega sus .c aquí.
 set(REDUX_SOURCES
         src/main.c
         src/diag/fase1_check.c
         src/diag/fase2_check.c
+        src/diag/fase3_check.c
         ${REDUX_HAL_SOURCES}
         ${REDUX_ACTUATOR_SOURCES}
+        ${REDUX_SENSOR_SOURCES}
+        ${REDUX_UI_SOURCES}
 )
 
 # Directorios de cabeceras de las capas del proyecto.
@@ -108,6 +122,19 @@ add_executable(fase2_check src/diag/fase2_check.c ${REDUX_ACTUATOR_SOURCES} ${RE
 pico_set_program_name(fase2_check "fase2_check")
 pico_set_program_version(fase2_check "0.1")
 redux_configure_target(fase2_check)
+
+# Programa de banco de la Fase 3 (AS5600 y calibración del rango), ejecutable aparte.
+# El driver del motor queda deshabilitado; solo se usa para dejarlo en estado seguro.
+add_executable(fase3_check
+        src/diag/fase3_check.c
+        ${REDUX_SENSOR_SOURCES}
+        ${REDUX_UI_SOURCES}
+        ${REDUX_ACTUATOR_SOURCES}
+        ${REDUX_HAL_SOURCES}
+)
+pico_set_program_name(fase3_check "fase3_check")
+pico_set_program_version(fase3_check "0.1")
+redux_configure_target(fase3_check)
 
 # Los avisos se tratan como errores desde el día uno, solo sobre nuestras fuentes
 # (las librerías INTERFACE del SDK agregan sus .c a estos targets, así que las flags

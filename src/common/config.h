@@ -34,6 +34,16 @@
 #define FASE2_DEADMAN_MS 5000u       // sin comando en este tiempo => frenar solo
 #define FASE2_CMD_LINE_MAX 32u       // largo máximo de una línea de comando por USB
 
+// --- AS5600 y calibración del rango del paciente (Fase 3) ---------------------
+// Convención: 0° = flexión máxima; el ángulo crece al extender; rom_deg = extensión
+// máxima. Los límites de trabajo son [ROM_MARGIN_DEG, rom_deg - ROM_MARGIN_DEG].
+#define AS5600_FILTER_SAMPLES 32u // muestras promediadas en la lectura estable (1 por tick)
+#define ROM_MIN_DEG 20.0f         // recorrido mínimo aceptable del paciente
+#define ROM_MAX_DEG 160.0f        // recorrido máximo aceptable del paciente
+#define ROM_MARGIN_DEG 5.0f       // margen de software antes de cada tope mecánico
+#define ROM_STABLE_MAX_DEG 2.0f   // dispersión máxima de las muestras al calibrar (si no, se rechaza)
+#define ANGLE_JUMP_MAX_DEG 30.0f  // salto de ángulo entre ciclos que marca falla (lo usa el supervisor, Fase 6)
+
 // Nota: los parámetros del prototipo (umbrales EMG, histéresis, rango articular,
 // rampas de potencia, watchdog) se vuelcan aquí en sus fases correspondientes
 // (Fases 3, 4, 5 y 6), cada uno con su unidad en el nombre.

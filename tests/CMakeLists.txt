@@ -53,3 +53,17 @@ redux_add_test(test_bts7960
         mocks/mock_hal_pwm.c
         mocks/mock_hal_gpio.c
 )
+
+# --- Fase 3 · driver AS5600 y calibración del rango --------------------------
+redux_add_test(test_as5600
+        test_as5600.c
+        ${REDUX_ROOT}/src/sensors/as5600.c
+        mocks/mock_hal_i2c.c
+)
+
+redux_add_test(test_rom_calib
+        test_rom_calib.c
+        ${REDUX_ROOT}/src/sensors/rom_calib.c
+        ${REDUX_ROOT}/src/sensors/as5600.c
+        mocks/mock_hal_i2c.c
+)

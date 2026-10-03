@@ -281,6 +281,7 @@ Son nueve fases; cada una termina con un criterio verificable y un commit, y nin
   8. Las confirmaciones y mensajes pasan por la interfaz \`app/ui.h\` (eventos CONFIRMAR, CANCELAR, RECALIBRAR y mensajes de estado), nunca por el pulsador directamente. Por ahora la implementa \`ui\_basic.c\` (pulsador GPIO 3, LED GPIO 2 y monitor serie); más adelante la caja con teclado y pantalla la reemplaza sin tocar la calibración ni el supervisor.
   9. Pruebas en PC: referencia cerca de 4095 con el recorrido cruzando el 0, sentido invertido, rango fuera de límites rechazado, lectura inestable rechazada.
 - **Terminado cuando:** el ángulo no salta al cruzar el cero del imán, coincide con un goniómetro en ambos extremos con error menor a 1° y una calibración inválida se rechaza.
+- **Estado (2026-10-03):** código y pruebas en PC OK; validación en hardware pendiente. El módulo AS5600 se dañó (pista de SDA levantada), así que la prueba en banco queda pendiente hasta conseguir otro.
 
 ### Fase 4 · Canal EMG y calibración
 
