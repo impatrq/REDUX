@@ -327,6 +327,11 @@ Son nueve fases; cada una termina con un criterio verificable y un commit, y nin
   1. Arrancar con `DUTY_MAX` bajo (0.3) y límites reducidos (10°–100°).
   2. Ajustar umbrales, rampas y zona de freno con la telemetría.
   3. Ampliar gradualmente hasta los valores finales.
+  4. Afinar el rechazo de artefactos grandes con la señal real: `EMG_SAT_COUNTS` /
+     `EMG_SAT_MS` (saturación) y `EMG_ON_MIN_MS` (tiempo mínimo de activación). Un
+     pico corto, aun de amplitud alta, no debe activar; un artefacto grande sostenido
+     se descarta por saturación. Las pruebas de PC lo verifican con valores supuestos;
+     acá se confirman contra el EMG del paciente.
 - **Terminado cuando:** se cumple la lista de aceptación del final.
 
 ### Fase 9 · Futuro

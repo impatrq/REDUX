@@ -90,14 +90,36 @@ void test_short_spike_does_not_activate(void) {
     emg_init(&ch);
     emg_set_thresholds(&ch, 100.0f, 60.0f);
 
-    // Pico de 20 ms: menos que EMG_ON_MIN_MS sobre el umbral.
-    feed(&ch, 4000u, 20u);
+    // Pico corto de amplitud moderada: la envolvente sube un poco por encima de
+    // thr_on pero durante menos de EMG_ON_MIN_MS. El conteo de activación corre
+    // sobre la envolvente (la cruda real ya viene rectificada y sin suavizar), así
+    // que lo que descarta este pico es el tiempo mínimo, no la amplitud.
+    feed(&ch, 320u, 20u); // 20 ms < EMG_ON_MIN_MS
+    TEST_ASSERT_TRUE(emg_envelope(&ch) > ch.thr_on); // de verdad cruzó el umbral
     TEST_ASSERT_FALSE(emg_is_active(&ch));
     // Luego vuelve a reposo: nunca debe activarse.
     for (uint32_t i = 0u; i < 300u; ++i) {
         emg_update(&ch, 0u);
         TEST_ASSERT_FALSE(emg_is_active(&ch));
     }
+}
+
+// Un artefacto enorme y breve no activa (lo filtra EMG_ON_MIN_MS igual que uno
+// moderado); el rechazo de un artefacto grande sostenido es por saturación, no por
+// la lógica de intención. En Fase 8 este rechazo se afina con la señal real.
+void test_huge_artifact_flagged_by_saturation(void) {
+    emg_channel_t ch;
+    emg_init(&ch);
+    emg_set_thresholds(&ch, 100.0f, 60.0f);
+
+    // Pico enorme pero breve (20 ms): ni activa ni satura todavía.
+    feed(&ch, 4095u, 20u);
+    TEST_ASSERT_FALSE(emg_is_active(&ch));
+    TEST_ASSERT_FALSE(emg_is_saturated(&ch));
+
+    // Si el artefacto grande se sostiene hasta EMG_SAT_MS, se marca por saturación.
+    feed(&ch, 4095u, ms_to_ticks(EMG_SAT_MS));
+    TEST_ASSERT_TRUE(emg_is_saturated(&ch));
 }
 
 void test_oscillation_around_threshold_no_flicker(void) {
@@ -240,6 +262,7 @@ int main(void) {
     RUN_TEST(test_rest_with_noise_does_not_activate);
     RUN_TEST(test_sustained_activates_after_on_min);
     RUN_TEST(test_short_spike_does_not_activate);
+    RUN_TEST(test_huge_artifact_flagged_by_saturation);
     RUN_TEST(test_oscillation_around_threshold_no_flicker);
     RUN_TEST(test_intensity_bounded_and_increasing);
     RUN_TEST(test_intensity_high_baseline);
