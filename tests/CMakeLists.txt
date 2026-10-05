@@ -68,6 +68,15 @@ redux_add_test(test_rom_calib
         mocks/mock_hal_i2c.c
 )
 
+# --- Fase 4 · canal EMG y calibración ----------------------------------------
+# emg_calib usa sqrt (math.h); en gcc nativo hay que enlazar libm.
+redux_add_test(test_emg
+        test_emg.c
+        ${REDUX_ROOT}/src/sensors/emg.c
+        ${REDUX_ROOT}/src/sensors/emg_calib.c
+)
+target_link_libraries(test_emg PRIVATE m)
+
 # --- Fase 5 · lógica de control pura (intent, limits, power) ------------------
 redux_add_test(test_intent
         test_intent.c

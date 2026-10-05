@@ -54,6 +54,8 @@ set(REDUX_ACTUATOR_SOURCES
 set(REDUX_SENSOR_SOURCES
         src/sensors/as5600.c
         src/sensors/rom_calib.c
+        src/sensors/emg.c
+        src/sensors/emg_calib.c
 )
 
 # Interfaz de usuario (app/). ui_basic implementa ui.h con pulsador, LED y USB.
@@ -68,6 +70,7 @@ set(REDUX_SOURCES
         src/diag/fase1_check.c
         src/diag/fase2_check.c
         src/diag/fase3_check.c
+        src/diag/fase4_check.c
         ${REDUX_HAL_SOURCES}
         ${REDUX_ACTUATOR_SOURCES}
         ${REDUX_SENSOR_SOURCES}
@@ -135,6 +138,18 @@ add_executable(fase3_check
 pico_set_program_name(fase3_check "fase3_check")
 pico_set_program_version(fase3_check "0.1")
 redux_configure_target(fase3_check)
+
+# Programa de banco de la Fase 4 (canal EMG y calibración), ejecutable aparte.
+# El driver del motor queda deshabilitado; solo lee los dos canales de EMG por ADC.
+add_executable(fase4_check
+        src/diag/fase4_check.c
+        ${REDUX_SENSOR_SOURCES}
+        ${REDUX_ACTUATOR_SOURCES}
+        ${REDUX_HAL_SOURCES}
+)
+pico_set_program_name(fase4_check "fase4_check")
+pico_set_program_version(fase4_check "0.1")
+redux_configure_target(fase4_check)
 
 # Los avisos se tratan como errores desde el día uno, solo sobre nuestras fuentes
 # (las librerías INTERFACE del SDK agregan sus .c a estos targets, así que las flags
