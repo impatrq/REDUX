@@ -4,12 +4,14 @@
 
 #include <stdbool.h>
 
-// Configura R_EN y L_EN del BTS7960 como salida y los deja en bajo (driver apagado).
-// Es la condición segura de arranque de toda la v1.
+// No-op en esta PCB: los enable del BTS7960 van fijos a +5 V del motor y no se
+// manejan por GPIO. Se conserva para no romper las llamadas existentes; la condición
+// segura de arranque de la v1 la dan RPWM y LPWM en 0 (bts7960_init).
 void hal_gpio_init(void);
 
-// Habilita (on=true) o deshabilita (on=false) ambos half-bridges del BTS7960,
-// moviendo R_EN y L_EN juntos. El sentido lo decide el lado con PWM, no estos pines.
+// No-op en esta PCB: R_EN/L_EN están fijos en alto por hardware. Se conserva la firma
+// para bts7960_enable y los programas de banco. La habilitación/corte real del motor
+// depende de RPWM/LPWM, no de estos pines.
 void hal_gpio_motor_enable(bool on);
 
 // Configura el LED de estado (GP2) como salida digital. Separado de hal_gpio_init

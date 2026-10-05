@@ -7,21 +7,17 @@
 #include "board.h"
 
 void hal_gpio_init(void) {
-    // Enable del BTS7960 en bajo = driver apagado. Además del pull-down externo de
-    // 10 kΩ, lo forzamos por software en el arranque.
-    gpio_init(PIN_MOTOR_R_EN);
-    gpio_set_dir(PIN_MOTOR_R_EN, GPIO_OUT);
-    gpio_put(PIN_MOTOR_R_EN, 0);
-
-    gpio_init(PIN_MOTOR_L_EN);
-    gpio_set_dir(PIN_MOTOR_L_EN, GPIO_OUT);
-    gpio_put(PIN_MOTOR_L_EN, 0);
+    // No-op en esta PCB: R_EN/L_EN del BTS7960 van fijos a +5 V del lado del motor,
+    // así que el firmware no maneja ningún pin de enable. La condición segura de
+    // arranque la dan RPWM y LPWM en 0 (ver bts7960_init).
+    (void)0;
 }
 
 void hal_gpio_motor_enable(bool on) {
-    // Ambos enable se mueven juntos: el sentido lo fija el lado con PWM activo.
-    gpio_put(PIN_MOTOR_R_EN, on);
-    gpio_put(PIN_MOTOR_L_EN, on);
+    // No-op en esta PCB: los enable están fijos en alto por hardware y no llegan a
+    // ningún GPIO. Se conserva la firma para no romper bts7960_enable ni los
+    // programas de banco; la habilitación/corte real depende de RPWM/LPWM.
+    (void)on;
 }
 
 void hal_gpio_led_init(void) {

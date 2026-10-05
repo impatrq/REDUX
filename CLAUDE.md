@@ -27,6 +27,7 @@ EMG bíceps/tríceps → lógica XOR → BTS7960. Encoder AS5600 por I2C para l�
 - Formatear con clang-format; compilar sin avisos.
 
 ## Cómo trabajar
+- Responder siempre en español.
 - Una fase por sesión; no tocar archivos de otras fases sin avisar.
 - Antes de terminar: compilar firmware, correr pruebas, resumir cambios.
 - Commits: feat(modulo): ..., fix(modulo): ..., test(modulo): ...

@@ -33,28 +33,27 @@ El firmware se escribe en C11 sobre el Raspberry Pi Pico SDK 2.x, se compila con
 | Señal | GPIO | Pin físico | Notas para el firmware |
 | --- | --- | --- | --- |
 | Teclado columna 4 | GP0 | 1 | Entrada con pull-up (Fase 9) |
-| LED de estado | GP2 | 4 | Salida, activo en alto |
-| Pulsador | GP3 | 5 | Entrada con pull-up interno, activo en bajo, antirrebote por software |
+| LED de estado | GP2 | 4 | Solo desarrollo; no va en la PCB final |
+| Pulsador | GP3 | 5 | Solo desarrollo; no va en la PCB final. Pull-up interno, activo en bajo |
 | AS5600 SDA | GP4 | 6 | I2C0 |
 | AS5600 SCL | GP5 | 7 | I2C0, 400 kHz |
-| BTS7960 L\_EN | GP6 | 9 | Salida; pull-down externo de 10 kΩ |
-| BTS7960 R\_EN | GP7 | 10 | Salida; pull-down externo de 10 kΩ |
-| BTS7960 RPWM (flexión) | GP8 | 11 | PWM slice 4A, 20 kHz |
-| BTS7960 LPWM (extensión) | GP9 | 12 | PWM slice 4B, 20 kHz |
+| Libre | GP6 | 9 | R\_EN/L\_EN del BTS7960 van fijos a +5 V del lado del motor; el firmware no los maneja |
+| Libre | GP7 | 10 | Ídem |
+| BTS7960 RPWM (flexión) | GP8 | 11 | PWM slice 4A, 20 kHz, a través de un 6N137 (no invierte) |
+| BTS7960 LPWM (extensión) | GP9 | 12 | PWM slice 4B, 20 kHz, a través de un 6N137 (no invierte) |
 | ST7735 SCK | GP10 | 14 | SPI1 (Fase 9) |
 | ST7735 MOSI | GP11 | 15 | SPI1 (Fase 9) |
 | ST7735 DC | GP12 | 16 | Salida (Fase 9) |
 | ST7735 CS | GP13 | 17 | Salida (Fase 9) |
 | ST7735 RST | GP14 | 19 | Salida (Fase 9) |
-| ST7735 luz de fondo | GP15 | 20 | PWM (Fase 9) |
+| Libre | GP15 | 20 | La luz de fondo (LED) de la ST7735 va fija a 3V3 en la PCB |
 | Teclado filas 1–4 | GP16–GP19 | 21, 22, 24, 25 | Salidas de barrido (Fase 9) |
 | Teclado columnas 1–3 | GP20–GP22 | 26, 27, 29 | Entradas con pull-up (Fase 9) |
-| EMG bíceps | GP26 / ADC0 | 31 | Entrada analógica |
-| EMG tríceps | GP27 / ADC1 | 32 | Entrada analógica |
-| Reservado: corriente IS del BTS7960 | GP28 / ADC2 | 34 | Sin uso en la v1 |
-| Libre | GP1 | 2 | — |
+| EMG bíceps | GP26 / ADC0 | 31 | Señal ya rectificada (onda completa), sin suavizar; 0–3 V |
+| EMG tríceps | GP27 / ADC1 | 32 | Ídem |
+| Libre | GP1, GP28 | 2, 34 | — |
 
-El BTS7960 se alimenta con una fuente externa y comparte masa con la Pico. El DIR del AS5600 va a GND, así que el sentido del ángulo se corrige solo por software (`sign` de la calibración). GP23, GP24, GP25 y GP29 no están disponibles (chip inalámbrico).
+**Aislación (PCB):** dos masas que no se tocan. GND1 = motor, driver BTS7960 y lado de salida de los 6N137, alimentados desde los 12 V con un LM2596 (5 V). GND2 = Pico, AS5600, pantalla, teclado y EMG, alimentados con 5 V aislados (B0505S → VSYS) y ±5 V aislados para el EMG. Como R\_EN y L\_EN quedan fijos en alto, el firmware no puede deshabilitar el driver: `bts7960_enable` no tiene efecto y la seguridad depende de RPWM/LPWM. Con la Pico reiniciada o apagada, los 6N137 dejan RPWM y LPWM en alto a la vez, lo que frena el motor (no lo mueve). El DIR del AS5600 va a GND2; el sentido del ángulo se corrige por software. GP23, GP24, GP25 y GP29 no están disponibles (chip inalámbrico).
 
 ## Estructura del repositorio
 
@@ -281,7 +280,8 @@ Son nueve fases; cada una termina con un criterio verificable y un commit, y nin
   8. Las confirmaciones y mensajes pasan por la interfaz \`app/ui.h\` (eventos CONFIRMAR, CANCELAR, RECALIBRAR y mensajes de estado), nunca por el pulsador directamente. Por ahora la implementa \`ui\_basic.c\` (pulsador GPIO 3, LED GPIO 2 y monitor serie); más adelante la caja con teclado y pantalla la reemplaza sin tocar la calibración ni el supervisor.
   9. Pruebas en PC: referencia cerca de 4095 con el recorrido cruzando el 0, sentido invertido, rango fuera de límites rechazado, lectura inestable rechazada.
 - **Terminado cuando:** el ángulo no salta al cruzar el cero del imán, coincide con un goniómetro en ambos extremos con error menor a 1° y una calibración inválida se rechaza.
-- **Estado (2026-10-03):** código y pruebas en PC OK; validación en hardware pendiente. El módulo AS5600 se dañó (pista de SDA levantada), así que la prueba en banco queda pendiente hasta conseguir otro.
+
+**Estado:** código y pruebas en PC terminados; la validación en hardware queda pendiente hasta probar con el AS5600 de reemplazo.
 
 ### Fase 4 · Canal EMG y calibración
 

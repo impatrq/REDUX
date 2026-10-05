@@ -18,6 +18,8 @@ void bts7960_init(void) {
 
 void bts7960_enable(bool on) {
     // Al deshabilitar, frenar primero: así los enable nunca caen con un duty activo.
+    // En esta PCB hal_gpio_motor_enable no tiene efecto (R_EN/L_EN fijos a +5 V del
+    // motor), por eso el freno real lo da bts7960_stop() dejando RPWM/LPWM en 0.
     if (!on) {
         bts7960_stop();
     }

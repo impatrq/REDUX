@@ -12,6 +12,10 @@
 void bts7960_init(void);
 
 // Habilita o deshabilita ambos half-bridges. Al deshabilitar también fuerza duty 0.
+// NOTA (PCB actual): R_EN/L_EN van fijos a +5 V del lado del motor, así que esta
+// llamada NO deshabilita el driver por hardware; el corte real depende de que RPWM y
+// LPWM queden en 0 (por eso al deshabilitar se fuerza duty 0). Se conserva por
+// compatibilidad con los programas de banco y una PCB futura con enables cableados.
 void bts7960_enable(bool on);
 
 // Deja ambos PWM (RPWM y LPWM) en 0 en la misma llamada. Freno pasivo.
