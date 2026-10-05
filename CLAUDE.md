@@ -5,7 +5,10 @@ EMG bíceps/tríceps → lógica XOR → BTS7960. Encoder AS5600 por I2C para l�
 
 ## Comandos
 - Firmware: cmake -B build -G Ninja -DPICO_BOARD=pico2_w && cmake --build build
-- Pruebas PC: cmake -B build-tests -S tests && cmake --build build-tests && ctest --test-dir build-tests
+- Pruebas PC (oficial): tools/run_tests_wsl.ps1 — compila y corre las pruebas en WSL 2
+  (Ubuntu: gcc/cmake/ninja), build separado en build-tests-wsl/. Se usa WSL porque Smart
+  App Control bloquea los .exe de prueba de MinGW en Windows.
+- Pruebas PC (sin WSL, puede quedar bloqueado por SAC): cmake -B build-tests -S tests && cmake --build build-tests && ctest --test-dir build-tests
 - Carga: tools/flash.sh
 
 ## Arquitectura (ver docs/PLAN.md)

@@ -1,6 +1,7 @@
 # Directorios de build
 build/
 build-tests/
+build-tests-wsl/
 cmake-build-*/
 
 # Artefactos del firmware
