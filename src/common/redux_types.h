@@ -29,10 +29,12 @@ typedef enum {
     INTENT_COCONTRACTION,
 } intent_t;
 
-// Estado del supervisor (ver app/supervisor).
+// Estado del supervisor (ver app/supervisor). ST_CALIB_ROM calibra el rango del
+// paciente (Fase 3) antes de las dos tomas de EMG (reposo y contracción máxima).
 typedef enum {
     ST_BOOT,
     ST_CHECK_ENC,
+    ST_CALIB_ROM,
     ST_CALIB_REST,
     ST_CALIB_MVC,
     ST_ARMING,
@@ -47,7 +49,12 @@ typedef enum {
     FAULT_MAGNET = 1u << 1,
     FAULT_ANGLE_JUMP = 1u << 2,
     FAULT_OVERRUN = 1u << 3,
+    FAULT_EMG_SAT = 1u << 4, // saturación de EMG en marcha (Fase 6)
 } fault_t;
+
+// Fallas del encoder: el rearme desde ST_FAULT con cualquiera de estos bits vuelve a
+// ST_CALIB_ROM (el rango ya no es confiable); el resto rearma a ST_ARMING.
+#define FAULT_ENC_MASK ((fault_t)(FAULT_I2C | FAULT_MAGNET | FAULT_ANGLE_JUMP))
 
 // Resultado de toda operación de hardware. El llamador siempre lo revisa.
 typedef enum {

@@ -42,7 +42,12 @@
 #define ROM_MAX_DEG 160.0f        // recorrido máximo aceptable del paciente
 #define ROM_MARGIN_DEG 5.0f       // margen de software antes de cada tope mecánico
 #define ROM_STABLE_MAX_DEG 2.0f   // dispersión máxima de las muestras al calibrar (si no, se rechaza)
-#define ANGLE_JUMP_MAX_DEG 30.0f  // salto de ángulo entre ciclos que marca falla (lo usa el supervisor, Fase 6)
+// Salto de ángulo entre ciclos (1 ms) que marca falla del encoder. 5° equivale a
+// 5000 °/s: el codo humano más rápido ronda 300–600 °/s y el exo va muy por debajo,
+// así que un salto así solo puede ser un fallo del sensor (patinada del imán, glitch
+// de I2C), no movimiento real; el ruido de una lectura simple del AS5600 es ±0.1–0.3°,
+// muy por debajo. Antes 30° (demasiado permisivo). Fase 6.
+#define ANGLE_JUMP_MAX_DEG 5.0f
 
 // --- Lógica de control pura (Fase 5) ------------------------------------------
 // Convención de ángulo (Fase 3): 0° = flexión máxima; el ángulo crece al extender.
@@ -82,5 +87,33 @@ _Static_assert(DUTY_MIN < DUTY_MAX, "DUTY_MIN debe ser menor que DUTY_MAX");
 // Nota: los parámetros del prototipo (umbrales EMG, histéresis, rango articular,
 // rampas de potencia, watchdog) se vuelcan aquí en sus fases correspondientes
 // (Fases 3, 4, 5 y 6), cada uno con su unidad en el nombre.
+
+// --- Supervisor, watchdog e integración (Fase 6) -----------------------------
+#define WDT_TIMEOUT_MS 500u      // el watchdog reinicia la Pico si el lazo no lo alimenta
+#define CTRL_OVERRUN_MAX 3u      // sobrepasos de CTRL_TICK_US seguidos que dan FAULT_OVERRUN
+#define REARM_OK_TICKS 500u      // lecturas estables en ST_FAULT antes de rearmar (0.5 s)
+#define MAGNET_CHECK_TICKS 50u   // cada cuántos ticks se relee el estado del imán (0x0B)
+#define STATUS_REPORT_MS 100u    // período del reporte de estado por USB
+#define STATUS_TX_CHUNK 16u      // bytes del reporte que se drenan por vuelta del lazo
+#define STATUS_LINE_MAX 160u     // largo máximo de una línea de estado
+#define APP_CMD_LINE_MAX 32u     // largo máximo de una línea de comando por USB
+
+// Fuente de la señal EMG. En esta fase (banco, sin electrodos) se usa SERIAL: el ADC
+// flotante con los electrodos desconectados podría activar el motor. En la Fase 8, con
+// el paciente y los EMG conectados, pasar EMG_SOURCE a EMG_SOURCE_ADC.
+#define EMG_SOURCE_ADC 0    // señal real por ADC (GP26/GP27)
+#define EMG_SOURCE_SERIAL 1 // señal simulada por comandos de serie ("b N", "t N", "r")
+#define EMG_SOURCE EMG_SOURCE_SERIAL
+
+// Modo banco: limita el duty del motor a un techo más seguro (DUTY_MAX_BENCH) mientras
+// se prueba sin el brazo. Desactivar (BENCH_MODE 0) para los valores finales.
+#define BENCH_MODE 1
+#define DUTY_MAX_BENCH 0.5f
+_Static_assert(DUTY_MAX_BENCH <= DUTY_MAX, "DUTY_MAX_BENCH no puede superar a DUTY_MAX");
+#if BENCH_MODE
+#define DUTY_CEIL DUTY_MAX_BENCH // techo efectivo de duty en esta build
+#else
+#define DUTY_CEIL DUTY_MAX
+#endif
 
 #endif // REDUX_CONFIG_H
