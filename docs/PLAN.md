@@ -281,7 +281,7 @@ Son nueve fases; cada una termina con un criterio verificable y un commit, y nin
   9. Pruebas en PC: referencia cerca de 4095 con el recorrido cruzando el 0, sentido invertido, rango fuera de límites rechazado, lectura inestable rechazada.
 - **Terminado cuando:** el ángulo no salta al cruzar el cero del imán, coincide con un goniómetro en ambos extremos con error menor a 1° y una calibración inválida se rechaza.
 
-**Estado:** código y pruebas en PC terminados; la validación en hardware queda pendiente hasta probar con el AS5600 de reemplazo.
+**Estado:** validada en banco con el AS5600 de reemplazo (lectura estable con el imán quieto, θ continuo cruzando el 0 del imán, sentido detectado en ambas direcciones, calibraciones inválidas rechazadas). Precisión contra goniómetro pendiente hasta montarlo en el brazo.
 
 ### Fase 4 · Canal EMG y calibración
 
@@ -327,12 +327,9 @@ Son nueve fases; cada una termina con un criterio verificable y un commit, y nin
   1. Arrancar con `DUTY_MAX` bajo (0.3) y límites reducidos (10°–100°).
   2. Ajustar umbrales, rampas y zona de freno con la telemetría.
   3. Ampliar gradualmente hasta los valores finales.
-  4. Afinar el rechazo de artefactos grandes con la señal real: `EMG_SAT_COUNTS` /
-     `EMG_SAT_MS` (saturación) y `EMG_ON_MIN_MS` (tiempo mínimo de activación). Un
-     pico corto, aun de amplitud alta, no debe activar; un artefacto grande sostenido
-     se descarta por saturación. Las pruebas de PC lo verifican con valores supuestos;
-     acá se confirman contra el EMG del paciente.
 - **Terminado cuando:** se cumple la lista de aceptación del final.
+
+**Ajuste del EMG con la señal real:** afinar `EMG_SAT_COUNTS`, `EMG_SAT_MS` y `EMG_ON_MIN_MS` con la señal del paciente. El rechazo de artefactos grandes y breves va por la detección de saturación, no por la lógica de intención; la activación se mide siempre sobre la envolvente, nunca sobre la muestra cruda.
 
 ### Fase 9 · Futuro
 
