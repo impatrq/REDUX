@@ -211,6 +211,10 @@ int main(void) {
                 print_raw();
             } else if (rom_calib_is_ready(&g_rc)) {
                 print_calibrated();
+            } else if (g_rc.phase == ROM_WAIT_FLEX || g_rc.phase == ROM_WAIT_EXT) {
+                // Mientras se espera la confirmación, mostrar la lectura cruda para
+                // saber dónde está el imán antes de confirmar (igual que el modo raw).
+                print_raw();
             }
         }
     }
