@@ -63,6 +63,20 @@ set(REDUX_UI_SOURCES
         src/app/ui_basic.c
 )
 
+# Lógica de control pura (control/). C portable: solo config/util, nunca el SDK.
+set(REDUX_CONTROL_SOURCES
+        src/control/intent.c
+        src/control/limits.c
+        src/control/power.c
+)
+
+# Capa de aplicación (app/). Supervisor (lógica pura) e integración del ciclo.
+set(REDUX_APP_SOURCES
+        src/app/supervisor.c
+        src/app/angle_watch.c
+        src/app/app.c
+)
+
 # Todas nuestras fuentes (nunca las del SDK): a estas se les aplican las flags
 # estrictas y los includes de las capas. Cada fase agrega sus .c aquí.
 set(REDUX_SOURCES
@@ -75,6 +89,8 @@ set(REDUX_SOURCES
         ${REDUX_ACTUATOR_SOURCES}
         ${REDUX_SENSOR_SOURCES}
         ${REDUX_UI_SOURCES}
+        ${REDUX_CONTROL_SOURCES}
+        ${REDUX_APP_SOURCES}
 )
 
 # Directorios de cabeceras de las capas del proyecto.
@@ -108,11 +124,22 @@ function(redux_configure_target target)
         pico_add_extra_outputs(${target})
 endfunction()
 
-# Firmware principal.
-add_executable(redux-firmware src/main.c ${REDUX_HAL_SOURCES})
+# Firmware principal: integra todas las capas (app -> control/sensors/actuators -> hal).
+add_executable(redux-firmware
+        src/main.c
+        ${REDUX_APP_SOURCES}
+        ${REDUX_CONTROL_SOURCES}
+        ${REDUX_SENSOR_SOURCES}
+        ${REDUX_ACTUATOR_SOURCES}
+        ${REDUX_UI_SOURCES}
+        ${REDUX_HAL_SOURCES}
+)
 pico_set_program_name(redux-firmware "redux-firmware")
-pico_set_program_version(redux-firmware "0.1")
+pico_set_program_version(redux-firmware "0.6")
 redux_configure_target(redux-firmware)
+# Timeout bajo de la salida USB: una terminal abierta que no lee no bloquea el lazo
+# ni dispara el watchdog (el reporte se arma y envía por chunks, ver main.c).
+target_compile_definitions(redux-firmware PRIVATE PICO_STDIO_USB_STDOUT_TIMEOUT_US=1000)
 
 # Programa de prueba de la Fase 1 (bring-up del HAL), ejecutable aparte.
 add_executable(fase1_check src/diag/fase1_check.c ${REDUX_HAL_SOURCES})
