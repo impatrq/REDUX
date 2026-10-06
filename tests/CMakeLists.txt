@@ -30,6 +30,7 @@ set(TEST_INCLUDE_DIRS
         ${REDUX_ROOT}/src/sensors
         ${REDUX_ROOT}/src/actuators
         ${REDUX_ROOT}/src/control
+        ${REDUX_ROOT}/src/app
         ${CMAKE_CURRENT_LIST_DIR}/mocks
 )
 
@@ -96,6 +97,18 @@ redux_add_test(test_power
 # Simulación encadenada: usa los tres módulos de control juntos.
 redux_add_test(test_control_chain
         test_control_chain.c
+        ${REDUX_ROOT}/src/control/intent.c
+        ${REDUX_ROOT}/src/control/limits.c
+        ${REDUX_ROOT}/src/control/power.c
+)
+
+# --- Fase 6 · supervisor, detector de salto de ángulo e integración ----------
+# El supervisor es lógica pura; el mini-test de integración encadena supervisor con
+# intent/limits/power (la misma cadena que app_tick corre en ST_RUN, sin hardware).
+redux_add_test(test_supervisor
+        test_supervisor.c
+        ${REDUX_ROOT}/src/app/supervisor.c
+        ${REDUX_ROOT}/src/app/angle_watch.c
         ${REDUX_ROOT}/src/control/intent.c
         ${REDUX_ROOT}/src/control/limits.c
         ${REDUX_ROOT}/src/control/power.c
