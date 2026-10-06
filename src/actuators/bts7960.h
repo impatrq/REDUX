@@ -29,4 +29,10 @@ void bts7960_stop(void);
 // dir: DIR_FLEX -> RPWM; DIR_EXT -> LPWM; DIR_STOP -> ambos en 0.
 void bts7960_apply(direction_t dir, float duty);
 
+// Devuelve el sentido y el duty REALMENTE escritos al PWM en la última llamada (el
+// valor ya recortado que recibió hal_pwm, no el objetivo de la rampa). Para telemetría:
+//   RPWM > 0 -> DIR_FLEX; LPWM > 0 -> DIR_EXT; ambos 0 -> DIR_STOP, duty 0.
+// Ningún puntero puede ser NULL.
+void bts7960_applied(direction_t *dir, float *duty);
+
 #endif // REDUX_BTS7960_H

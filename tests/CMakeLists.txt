@@ -102,6 +102,15 @@ redux_add_test(test_control_chain
         ${REDUX_ROOT}/src/control/power.c
 )
 
+# --- Fase 6 (fix) · salida del motor: bts7960_applied y bloqueo de límites -----
+redux_add_test(test_motor_output
+        test_motor_output.c
+        ${REDUX_ROOT}/src/actuators/bts7960.c
+        ${REDUX_ROOT}/src/control/limits.c
+        mocks/mock_hal_pwm.c
+        mocks/mock_hal_gpio.c
+)
+
 # --- Fase 6 · supervisor, detector de salto de ángulo e integración ----------
 # El supervisor es lógica pura; el mini-test de integración encadena supervisor con
 # intent/limits/power (la misma cadena que app_tick corre en ST_RUN, sin hardware).

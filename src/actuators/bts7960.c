@@ -8,6 +8,11 @@
 #include "hal_pwm.h"
 #include "util.h" // clampf
 
+// Último duty escrito a cada lado (el valor ya recortado que recibió hal_pwm). Permite
+// que la telemetría reporte lo realmente aplicado, no el objetivo de la rampa.
+static float g_duty_rpwm = 0.0f;
+static float g_duty_lpwm = 0.0f;
+
 void bts7960_init(void) {
     // Condición segura de arranque: enables en bajo (deshabilitado) y duty 0.
     hal_gpio_init();
@@ -29,6 +34,8 @@ void bts7960_enable(bool on) {
 void bts7960_stop(void) {
     hal_pwm_set_duty(PIN_MOTOR_RPWM, 0.0f);
     hal_pwm_set_duty(PIN_MOTOR_LPWM, 0.0f);
+    g_duty_rpwm = 0.0f;
+    g_duty_lpwm = 0.0f;
 }
 
 void bts7960_apply(direction_t dir, float duty) {
@@ -38,14 +45,31 @@ void bts7960_apply(direction_t dir, float duty) {
     case DIR_FLEX: // flexión: RPWM activo, LPWM apagado
         hal_pwm_set_duty(PIN_MOTOR_LPWM, 0.0f);
         hal_pwm_set_duty(PIN_MOTOR_RPWM, d);
+        g_duty_lpwm = 0.0f;
+        g_duty_rpwm = d;
         break;
     case DIR_EXT: // extensión: LPWM activo, RPWM apagado
         hal_pwm_set_duty(PIN_MOTOR_RPWM, 0.0f);
         hal_pwm_set_duty(PIN_MOTOR_LPWM, d);
+        g_duty_rpwm = 0.0f;
+        g_duty_lpwm = d;
         break;
     case DIR_STOP:
     default:
         bts7960_stop();
         break;
+    }
+}
+
+void bts7960_applied(direction_t *dir, float *duty) {
+    if (g_duty_rpwm > 0.0f) {
+        *dir = DIR_FLEX;
+        *duty = g_duty_rpwm;
+    } else if (g_duty_lpwm > 0.0f) {
+        *dir = DIR_EXT;
+        *duty = g_duty_lpwm;
+    } else {
+        *dir = DIR_STOP;
+        *duty = 0.0f;
     }
 }

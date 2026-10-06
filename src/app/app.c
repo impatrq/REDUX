@@ -393,6 +393,7 @@ static void stop_motor(void) {
 //  API pública.
 // =============================================================================
 void app_init(void) {
+    bts7960_init(); // configura el PWM del motor (slice 4, 20 kHz) y deja el driver en 0
     supervisor_init(&g_sv);
     power_init(&g_ps);
     angle_watch_reset(&g_aw);
@@ -473,8 +474,9 @@ void app_tick(bool loop_behind) {
     g_status.env_tri = e.env_t;
     g_status.intensity_bic = e.inten_b;
     g_status.intensity_tri = e.inten_t;
-    g_status.dir = g_ps.dir;
-    g_status.duty = g_ps.duty;
+    // Sentido y duty REALMENTE escritos al PWM este tick (no el objetivo de la rampa):
+    // así el reporte coincide con lo que mide un osciloscopio en GP8/GP9.
+    bts7960_applied(&g_status.dir, &g_status.duty);
 
     g_tick++;
 
