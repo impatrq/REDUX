@@ -63,8 +63,8 @@ static void report_build(uint64_t now_us, uint64_t *last_us) {
     app_get_status(&s);
     const int n = snprintf(
         g_rep, sizeof(g_rep),
-        "st=%s th=%.1f bic=%.0f/%.2f tri=%.0f/%.2f dir=%d duty=%.2f F=0x%02X sim=%d trep=%lluus\n",
-        state_name(s.state), (double)s.angle_deg, (double)s.env_bic, (double)s.intensity_bic,
+        "st=%s th=%.1f raw=%ld bic=%.0f/%.2f tri=%.0f/%.2f dir=%d duty=%.2f F=0x%02X sim=%d trep=%lluus\n",
+        state_name(s.state), (double)s.angle_deg, (long)s.encoder_raw, (double)s.env_bic, (double)s.intensity_bic,
         (double)s.env_tri, (double)s.intensity_tri, (int)s.dir, (double)s.duty,
         (unsigned)s.faults, (int)s.emg_simulated,
         (unsigned long long)(hal_time_us() - build0));

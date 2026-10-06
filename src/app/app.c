@@ -219,6 +219,7 @@ static bool is_armed_state(sys_state_t s) {
 static fault_t read_encoder(sys_state_t state) {
     int32_t raw = 0;
     const status_t st = as5600_read_raw(&raw);
+    g_status.encoder_raw = raw; // crudo siempre visible en el reporte (0 si falló el I2C)
     fault_t enc = (st != STATUS_OK) ? FAULT_I2C : FAULT_NONE;
 
     if ((g_tick % MAGNET_CHECK_TICKS) == 0u) {
@@ -407,6 +408,7 @@ void app_init(void) {
     g_status.state = ST_BOOT;
     g_status.faults = FAULT_NONE;
     g_status.angle_deg = 0.0f;
+    g_status.encoder_raw = 0;
     g_status.dir = DIR_STOP;
     g_status.duty = 0.0f;
     g_status.emg_simulated = (EMG_SOURCE == EMG_SOURCE_SERIAL);

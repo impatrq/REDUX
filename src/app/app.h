@@ -17,6 +17,7 @@ typedef struct {
     sys_state_t state;    // estado del supervisor
     fault_t faults;       // causa de falla vigente (máscara)
     float angle_deg;      // ángulo articular (0 si el ROM no está calibrado)
+    int32_t encoder_raw;  // última lectura cruda del AS5600 (0..4095), 0 si falló el I2C
     float env_bic;        // envolvente/nivel del bíceps
     float env_tri;        // envolvente/nivel del tríceps
     float intensity_bic;  // intensidad del bíceps [0,1]
