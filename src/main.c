@@ -84,6 +84,22 @@ static void report_drain(void) {
     }
 }
 
+#if BENCH_MODE
+// Diagnóstico temporal (solo con BENCH_MODE): cuelga el lazo sin alimentar el watchdog
+// para verificar que la Pico se reinicia. Avisa por USB antes de colgarse. Si el
+// watchdog ya está habilitado (tras armar), reinicia en ~WDT_TIMEOUT_MS; si no, queda
+// colgada hasta un reset manual. Quitar antes de la versión final.
+static void diag_hang(void) {
+    printf("[diag] HANG: cuelgo el lazo sin alimentar el watchdog. Si esta armado, "
+           "la Pico se reinicia en ~%u ms.\n",
+           WDT_TIMEOUT_MS);
+    stdio_flush();
+    while (true) {
+        tight_loop_contents();
+    }
+}
+#endif
+
 // Lee una línea de serie (no bloqueante) y la despacha: primero a la fuente de EMG
 // simulada ("b N"/"t N"/"r"); si no la consume, a la interfaz ("ok"/"cancel"/"recal").
 static void poll_serial(char *line, uint32_t *len) {
@@ -93,6 +109,11 @@ static void poll_serial(char *line, uint32_t *len) {
     }
     if (c == '\n' || c == '\r') {
         line[*len] = '\0';
+#if BENCH_MODE
+        if (strcmp(line, "hang") == 0) {
+            diag_hang(); // no retorna
+        }
+#endif
         if (*len > 0u && !app_feed_sim(line)) {
             ui_basic_feed_line(line);
         }
