@@ -1,3 +1,6 @@
+# Entregas: los zips se regeneran, no se versionan; el indice y el script si
+entregas/*.zip
+
 # Directorios de build
 build/
 build-tests/
