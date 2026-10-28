@@ -100,14 +100,24 @@ redux-firmware/
 │       ├── supervisor.c/.h    # Máquina de estados de seguridad
 │       ├── app.c/.h           # Orquesta un ciclo de control
 │       └── telemetry.c/.h     # Cola de muestras y envío por USB (core 1)
-├── tests/
-│   ├── CMakeLists.txt         # Build de pruebas para la PC
-│   ├── unity/                 # Framework Unity (vendorizado)
-│   ├── mocks/                 # Dobles de hal_*
-│   └── test_*.c               # Un archivo por módulo probado
+├── Pruebas/
+│   ├── README.md             # Índice de todas las pruebas
+│   ├── telemetry_plot.py     # Lee el USB y grafica en vivo
+│   ├── unitarias/            # Pruebas de PC (Unity + mocks de hal_*)
+│   │   ├── CMakeLists.txt    # Build de pruebas para la PC
+│   │   ├── run_tests_wsl.ps1 # Forma oficial: compila y corre en WSL 2
+│   │   ├── unity/            # Framework Unity (vendorizado)
+│   │   ├── mocks/            # Dobles de hal_*
+│   │   └── test_*.c          # Un archivo por módulo probado
+│   └── banco/                # Programas de prueba sobre la placa, uno por fase
+│       ├── fase1_hal/        # fase1_check: bring-up del HAL
+│       ├── fase2_motor/      # fase2_check: driver BTS7960
+│       ├── fase3_encoder/    # fase3_check: AS5600 y rango
+│       └── emg/              # emg_check: canal EMG y calibración
 └── tools/
-    ├── flash.sh               # Compila y carga con picotool
-    └── telemetry_plot.py      # Lee el USB y grafica en vivo
+    ├── flash.sh              # Compila y carga con picotool
+    ├── make_uf2_wsl.ps1      # Genera el .uf2 del firmware vía WSL
+    └── make_entregas.ps1     # Regenera los zips de entrega por fase
 ```
 
 ## Arquitectura por capas y rol de cada archivo
@@ -256,7 +266,7 @@ Son nueve fases; cada una termina con un criterio verificable y un commit, y nin
 
 ### Fase 2 · Driver BTS7960
 
-- **Archivos:** `actuators/bts7960.*`, `tests/test_bts7960.c`.
+- **Archivos:** `actuators/bts7960.*`, `Pruebas/unitarias/test_bts7960.c`.
 - **Pasos:**
   1. Iniciar ambos PWM a 20 kHz y los enable en bajo.
   2. Implementar `apply` con el orden “apagar opuesto, luego activar”.
@@ -266,7 +276,7 @@ Son nueve fases; cada una termina con un criterio verificable y un commit, y nin
 
 ### Fase 3 · Driver AS5600 y calibración del rango del paciente
 
-- **Archivos:** `sensors/as5600.*`, `sensors/rom_calib.*`, `tests/test_as5600.c`, `tests/test_rom_calib.c`.
+- **Archivos:** `sensors/as5600.*`, `sensors/rom_calib.*`, `Pruebas/unitarias/test_as5600.c`, `Pruebas/unitarias/test_rom_calib.c`.
 - **Convención (reemplaza a la del resto del plan):** 0° = flexión máxima del paciente; el ángulo crece al extender; `rom_deg` = extensión máxima. Los límites dejan de ser fijos (0°–130°) y pasan a ser `[ROM_MARGIN_DEG, rom_deg − ROM_MARGIN_DEG]`.
 - **Causa del overflow a evitar:** la lectura cruda va de 0 a 4095 y vuelve a 0. Si ese salto cae dentro del recorrido del brazo, restar dos lecturas directamente (sobre todo en `uint16_t`) da saltos enormes. Nunca se restan lecturas crudas sin envolver.
 - **Pasos:**
@@ -285,7 +295,7 @@ Son nueve fases; cada una termina con un criterio verificable y un commit, y nin
 
 ### Fase 4 · Canal EMG y calibración
 
-- **Archivos:** `sensors/emg.*`, `sensors/emg_calib.*`, `tests/test_emg.c`.
+- **Archivos:** `sensors/emg.*`, `sensors/emg_calib.*`, `Pruebas/unitarias/test_emg.c`.
 - **Pasos:**
   1. Envolvente exponencial, rectificado opcional según `EMG_RAW_SIGNAL`.
   2. Histéresis de activación y cálculo de intensidad.
@@ -304,7 +314,7 @@ Son nueve fases; cada una termina con un criterio verificable y un commit, y nin
 
 ### Fase 6 · Supervisor e integración
 
-- **Archivos:** `app/supervisor.*`, `app/app.*`, `main.c`, `hal_wdt.*`, `tests/test_supervisor.c`.
+- **Archivos:** `app/supervisor.*`, `app/app.*`, `main.c`, `hal_wdt.*`, `Pruebas/unitarias/test_supervisor.c`.
 - **Pasos:**
   1. Implementar los estados y transiciones del diagrama de la máquina de estados.
   2. `app_tick` con el orden fijo de ciclo.
@@ -314,7 +324,7 @@ Son nueve fases; cada una termina con un criterio verificable y un commit, y nin
 
 ### Fase 7 · Telemetría y persistencia
 
-- **Archivos:** `app/telemetry.*`, `tools/telemetry_plot.py`, flash de calibración.
+- **Archivos:** `app/telemetry.*`, `Pruebas/telemetry_plot.py`, flash de calibración.
 - **Pasos:**
   1. Cola circular de muestras entre núcleos, con contador de pérdidas.
   2. Core 1 envía líneas CSV: tiempo, ángulo, envolventes, estado, dirección, duty, fallas.
@@ -344,8 +354,8 @@ La lógica se prueba primero en la PC, donde un error no mueve nada; el hardware
 
 | Nivel | Dónde corre | Qué cubre | Herramienta |
 | --- | --- | --- | --- |
-| Unitarias | PC (`tests/`, build con gcc nativo) | `intent`, `limits`, `power`, `emg`, `emg_calib`, `as5600_raw_to_deg`, `supervisor`, invariante de `bts7960` | Unity + mocks de `hal_*` |
-| Integración en banco | Pico + driver + motor sin carga | Sentidos de giro, rampas, lectura del encoder, fallas provocadas | Monitor serie y `telemetry_plot.py` |
+| Unitarias | PC (`Pruebas/unitarias/`, build con gcc nativo) | `intent`, `limits`, `power`, `emg`, `emg_calib`, `as5600_raw_to_deg`, `supervisor`, invariante de `bts7960` | Unity + mocks de `hal_*` |
+| Integración en banco | Pico + driver + motor sin carga (`Pruebas/banco/`) | Sentidos de giro, rampas, lectura del encoder, fallas provocadas | Monitor serie y `telemetry_plot.py` |
 | Aceptación | Exoesqueleto con usuario | Umbrales, comodidad, límites reales | Lista de aceptación y registro de telemetría |
 
 **Casos mínimos por módulo**
@@ -422,7 +432,7 @@ EMG bíceps/tríceps → lógica XOR → BTS7960. Encoder AS5600 por I2C para l�
 
 ## Comandos
 - Firmware: cmake -B build -G Ninja -DPICO_BOARD=pico2_w && cmake --build build
-- Pruebas PC: cmake -B build-tests -S tests && cmake --build build-tests && ctest --test-dir build-tests
+- Pruebas PC: cmake -B build-tests -S Pruebas/unitarias && cmake --build build-tests && ctest --test-dir build-tests
 - Carga: tools/flash.sh
 
 ## Arquitectura (ver docs/PLAN.md)
@@ -440,7 +450,7 @@ EMG bíceps/tríceps → lógica XOR → BTS7960. Encoder AS5600 por I2C para l�
 ## Convenciones
 - snake_case con prefijo de módulo; tipos con _t; constantes con unidad (LIM_MAX_DEG).
 - Sin malloc, sin números mágicos (todo en config.h), internos static.
-- Cada módulo nuevo llega con tests/test_<modulo>.c.
+- Cada módulo nuevo llega con Pruebas/unitarias/test_<modulo>.c.
 - Formatear con clang-format; compilar sin avisos.
 
 ## Cómo trabajar

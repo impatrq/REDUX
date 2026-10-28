@@ -1,5 +1,5 @@
-// fase4_check.c · Programa de banco de la Fase 4 (no es el firmware). Ejecutable aparte
-// (target fase4_check) para verificar el canal EMG y su calibración. Sirve con el EMG
+// emg_check.c · Programa de banco del canal EMG (no es el firmware). Ejecutable aparte
+// (target emg_check) para verificar el canal EMG y su calibración. Sirve con el EMG
 // real o con un potenciómetro en GP26/GP27 simulando la envolvente. El driver del motor
 // queda DESHABILITADO siempre. Hace el sobremuestreo de EMG_OVERSAMPLE lecturas por canal
 // y por tick (lo que en el firmware hará app_tick) y pasa la muestra promediada a emg.
@@ -162,7 +162,7 @@ int main(void) {
     emg_init(&g_ch_b);
     emg_init(&g_ch_t);
 
-    printf("REDUX fase4_check: comandos 'rest', 'mvc b', 'mvc t'. Motor deshabilitado.\n");
+    printf("REDUX emg_check: comandos 'rest', 'mvc b', 'mvc t'. Motor deshabilitado.\n");
     printf("t_ms,env_b,act_b,int_b,sat_b,env_t,act_t,int_t,sat_t\n");
 
     char line[FASE4_CMD_LINE_MAX];

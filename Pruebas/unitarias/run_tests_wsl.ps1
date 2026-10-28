@@ -6,8 +6,8 @@
 # Windows (build-tests). Esta es la forma oficial de correr las pruebas (ver CLAUDE.md).
 #
 # Uso (desde cualquier carpeta):
-#   powershell -ExecutionPolicy Bypass -File tools\run_tests_wsl.ps1
-#   tools\run_tests_wsl.ps1 -Clean     # borra build-tests-wsl antes de configurar
+#   powershell -ExecutionPolicy Bypass -File Pruebas\unitarias\run_tests_wsl.ps1
+#   Pruebas\unitarias\run_tests_wsl.ps1 -Clean   # borra build-tests-wsl antes de configurar
 #
 # Devuelve el codigo de salida de ctest (0 = todas pasaron).
 
@@ -18,8 +18,8 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Raiz del repo = carpeta padre de tools/.
-$repoRoot = (Resolve-Path (Split-Path -Parent $PSScriptRoot)).Path
+# Raiz del repo = dos niveles arriba de este script (Pruebas/unitarias/).
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 
 # Traduce C:\Users\... a /mnt/c/Users/... (se hace aca y no con wslpath porque al pasar
 # la ruta por wsl.exe se pierden las barras invertidas).
@@ -41,7 +41,7 @@ $bash = @"
 set -e
 cd '$wslRoot'
 $cleanCmd
-cmake -B build-tests-wsl -S tests -G Ninja
+cmake -B build-tests-wsl -S Pruebas/unitarias -G Ninja
 cmake --build build-tests-wsl
 ctest --test-dir build-tests-wsl --output-on-failure
 "@

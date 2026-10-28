@@ -25,6 +25,10 @@ endif()
 # ====================================================================================
 set(PICO_BOARD pico2_w CACHE STRING "Board type")
 
+# Compilar también los programas de banco (Pruebas/banco/*). ON por defecto; apagar con
+# -DREDUX_BUILD_BANCOS=OFF para construir solo el firmware principal, sin las pruebas.
+option(REDUX_BUILD_BANCOS "Compilar los programas de banco (Pruebas/banco)" ON)
+
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
@@ -81,10 +85,10 @@ set(REDUX_APP_SOURCES
 # estrictas y los includes de las capas. Cada fase agrega sus .c aquí.
 set(REDUX_SOURCES
         src/main.c
-        src/diag/fase1_check.c
-        src/diag/fase2_check.c
-        src/diag/fase3_check.c
-        src/diag/fase4_check.c
+        Pruebas/banco/fase1_hal/fase1_check.c
+        Pruebas/banco/fase2_motor/fase2_check.c
+        Pruebas/banco/fase3_encoder/fase3_check.c
+        Pruebas/banco/emg/emg_check.c
         ${REDUX_HAL_SOURCES}
         ${REDUX_ACTUATOR_SOURCES}
         ${REDUX_SENSOR_SOURCES}
@@ -141,42 +145,46 @@ redux_configure_target(redux-firmware)
 # ni dispara el watchdog (el reporte se arma y envía por chunks, ver main.c).
 target_compile_definitions(redux-firmware PRIVATE PICO_STDIO_USB_STDOUT_TIMEOUT_US=1000)
 
-# Programa de prueba de la Fase 1 (bring-up del HAL), ejecutable aparte.
-add_executable(fase1_check src/diag/fase1_check.c ${REDUX_HAL_SOURCES})
-pico_set_program_name(fase1_check "fase1_check")
-pico_set_program_version(fase1_check "0.1")
-redux_configure_target(fase1_check)
+# Programas de banco (Pruebas/banco/*): ejecutables de prueba sobre la placa, aparte del
+# firmware. Se compilan solo si REDUX_BUILD_BANCOS está en ON (ver opción más arriba).
+if(REDUX_BUILD_BANCOS)
+        # Programa de prueba de la Fase 1 (bring-up del HAL), ejecutable aparte.
+        add_executable(fase1_check Pruebas/banco/fase1_hal/fase1_check.c ${REDUX_HAL_SOURCES})
+        pico_set_program_name(fase1_check "fase1_check")
+        pico_set_program_version(fase1_check "0.1")
+        redux_configure_target(fase1_check)
 
-# Programa de banco de la Fase 2 (driver BTS7960 con motor sin carga), ejecutable aparte.
-add_executable(fase2_check src/diag/fase2_check.c ${REDUX_ACTUATOR_SOURCES} ${REDUX_HAL_SOURCES})
-pico_set_program_name(fase2_check "fase2_check")
-pico_set_program_version(fase2_check "0.1")
-redux_configure_target(fase2_check)
+        # Programa de banco de la Fase 2 (driver BTS7960 con motor sin carga), ejecutable aparte.
+        add_executable(fase2_check Pruebas/banco/fase2_motor/fase2_check.c ${REDUX_ACTUATOR_SOURCES} ${REDUX_HAL_SOURCES})
+        pico_set_program_name(fase2_check "fase2_check")
+        pico_set_program_version(fase2_check "0.1")
+        redux_configure_target(fase2_check)
 
-# Programa de banco de la Fase 3 (AS5600 y calibración del rango), ejecutable aparte.
-# El driver del motor queda deshabilitado; solo se usa para dejarlo en estado seguro.
-add_executable(fase3_check
-        src/diag/fase3_check.c
-        ${REDUX_SENSOR_SOURCES}
-        ${REDUX_UI_SOURCES}
-        ${REDUX_ACTUATOR_SOURCES}
-        ${REDUX_HAL_SOURCES}
-)
-pico_set_program_name(fase3_check "fase3_check")
-pico_set_program_version(fase3_check "0.1")
-redux_configure_target(fase3_check)
+        # Programa de banco de la Fase 3 (AS5600 y calibración del rango), ejecutable aparte.
+        # El driver del motor queda deshabilitado; solo se usa para dejarlo en estado seguro.
+        add_executable(fase3_check
+                Pruebas/banco/fase3_encoder/fase3_check.c
+                ${REDUX_SENSOR_SOURCES}
+                ${REDUX_UI_SOURCES}
+                ${REDUX_ACTUATOR_SOURCES}
+                ${REDUX_HAL_SOURCES}
+        )
+        pico_set_program_name(fase3_check "fase3_check")
+        pico_set_program_version(fase3_check "0.1")
+        redux_configure_target(fase3_check)
 
-# Programa de banco de la Fase 4 (canal EMG y calibración), ejecutable aparte.
-# El driver del motor queda deshabilitado; solo lee los dos canales de EMG por ADC.
-add_executable(fase4_check
-        src/diag/fase4_check.c
-        ${REDUX_SENSOR_SOURCES}
-        ${REDUX_ACTUATOR_SOURCES}
-        ${REDUX_HAL_SOURCES}
-)
-pico_set_program_name(fase4_check "fase4_check")
-pico_set_program_version(fase4_check "0.1")
-redux_configure_target(fase4_check)
+        # Programa de banco del canal EMG y su calibración, ejecutable aparte.
+        # El driver del motor queda deshabilitado; solo lee los dos canales de EMG por ADC.
+        add_executable(emg_check
+                Pruebas/banco/emg/emg_check.c
+                ${REDUX_SENSOR_SOURCES}
+                ${REDUX_ACTUATOR_SOURCES}
+                ${REDUX_HAL_SOURCES}
+        )
+        pico_set_program_name(emg_check "emg_check")
+        pico_set_program_version(emg_check "0.1")
+        redux_configure_target(emg_check)
+endif()
 
 # Los avisos se tratan como errores desde el día uno, solo sobre nuestras fuentes
 # (las librerías INTERFACE del SDK agregan sus .c a estos targets, así que las flags

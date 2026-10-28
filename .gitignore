@@ -1,5 +1,5 @@
-# Entregas: los zips se regeneran, no se versionan; el indice y el script si
-entregas/*.zip
+# Entregas: carpeta local, no se versiona (los zips se regeneran con make_entregas.ps1)
+entregas/
 
 # Directorios de build
 build/
@@ -25,5 +25,8 @@ compile_commands.json
 Thumbs.db
 *.swp
 
-# Conservar la configuración compartida de VS Code
-!.vscode/*
+# Configuración local de VS Code: no se versiona (ver README, "Abrir el proyecto en VS Code")
+.vscode/
+
+# Guía de trabajo con Claude Code: local, no va al repo del equipo
+CLAUDE.md

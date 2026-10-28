@@ -4,9 +4,10 @@
 # fase agrega su test_<modulo>.c.
 #
 # Uso (desde la raíz del repo):
-#   cmake -B build-tests -S tests -G Ninja
+#   cmake -B build-tests -S Pruebas/unitarias -G Ninja
 #   cmake --build build-tests
 #   ctest --test-dir build-tests --output-on-failure
+# La forma oficial es correrlas en WSL con Pruebas/unitarias/run_tests_wsl.ps1.
 
 cmake_minimum_required(VERSION 3.13)
 project(redux-tests C)
@@ -16,7 +17,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 enable_testing()
 
-set(REDUX_ROOT ${CMAKE_CURRENT_LIST_DIR}/..)
+# Raíz del repo = dos niveles arriba (Pruebas/unitarias/../..).
+set(REDUX_ROOT ${CMAKE_CURRENT_LIST_DIR}/../..)
 
 # Framework Unity (vendorizado en tests/unity). Sus propios avisos no son nuestros,
 # así que se compila sin las flags estrictas.

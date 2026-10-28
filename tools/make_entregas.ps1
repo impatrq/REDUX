@@ -58,17 +58,17 @@ $Desc = @{
     'src/hal/hal_time.h'            = 'Interfaz del HAL de tiempo.'
     'src/hal/hal_wdt.c'             = 'HAL del watchdog.'
     'src/hal/hal_wdt.h'             = 'Interfaz del HAL del watchdog.'
-    'src/diag/fase1_check.c'        = 'Banco de bring-up de la Fase 1: ejercita el HAL e imprime por USB. El motor nunca se activa.'
+    'Pruebas/banco/fase1_hal/fase1_check.c'        = 'Banco de bring-up de la Fase 1: ejercita el HAL e imprime por USB. El motor nunca se activa.'
 
     'src/actuators/bts7960.c'       = 'Driver del puente H BTS7960; garantiza que RPWM y LPWM nunca tengan duty a la vez.'
     'src/actuators/bts7960.h'       = 'Interfaz del driver BTS7960.'
-    'src/diag/fase2_check.c'        = 'Banco de la Fase 2: maneja el motor sin carga por comandos serie, con hombre muerto y freno al invertir.'
+    'Pruebas/banco/fase2_motor/fase2_check.c'        = 'Banco de la Fase 2: maneja el motor sin carga por comandos serie, con hombre muerto y freno al invertir.'
 
     'src/sensors/as5600.c'          = 'Driver del encoder magnetico AS5600 por I2C (angulo y bits de estado del iman).'
     'src/sensors/as5600.h'          = 'Interfaz del driver AS5600.'
     'src/sensors/rom_calib.c'       = 'Calibracion del rango de movimiento del paciente y clasificacion dentro/limite/fuera.'
     'src/sensors/rom_calib.h'       = 'Interfaz de la calibracion del rango (ROM).'
-    'src/diag/fase3_check.c'        = 'Banco de la Fase 3: verifica el AS5600 y la calibracion del rango. El motor queda deshabilitado.'
+    'Pruebas/banco/fase3_encoder/fase3_check.c'        = 'Banco de la Fase 3: verifica el AS5600 y la calibracion del rango. El motor queda deshabilitado.'
     'src/app/ui.h'                  = 'Interfaz de la UI minima (eventos de pulsador/serie) usada por el diag y la app.'
     'src/app/ui_basic.c'            = 'Implementacion de la UI basica (confirmar/cancelar/recalibrar).'
     'src/app/ui_basic.h'            = 'Interfaz de la UI basica.'
@@ -84,7 +84,7 @@ $Desc = @{
     'src/sensors/emg.h'             = 'Interfaz del canal EMG.'
     'src/sensors/emg_calib.c'       = 'Calibracion del EMG: reposo y contraccion maxima (MVC) por musculo.'
     'src/sensors/emg_calib.h'       = 'Interfaz de la calibracion EMG.'
-    'src/diag/fase4_check.c'        = 'Banco del canal EMG (numerado fase4 en el repo): vuelca CSV de ambos canales. El motor queda deshabilitado.'
+    'Pruebas/banco/emg/emg_check.c'        = 'Banco del canal EMG (target emg_check): vuelca CSV de ambos canales. El motor queda deshabilitado.'
 
     'src/app/supervisor.c'          = 'Maquina de estados de seguridad: co-contraccion, limite, falla de encoder y rearme.'
     'src/app/supervisor.h'          = 'Interfaz del supervisor.'
@@ -96,30 +96,30 @@ $Desc = @{
     'src/app/telemetry.h'           = 'Interfaz de telemetria.'
     'src/main.c'                    = 'Punto de entrada del firmware: inicializa el SDK y arranca el ciclo con UI y reporte USB.'
 
-    'tests/CMakeLists.txt'          = 'Build de las pruebas de PC (Unity): define cada target test_<modulo> y sus fuentes.'
-    'tests/unity/unity.c'           = 'Framework de pruebas Unity (implementacion).'
-    'tests/unity/unity.h'           = 'Framework de pruebas Unity (API).'
-    'tests/unity/unity_internals.h' = 'Framework de pruebas Unity (internos).'
-    'tests/unity/.gitkeep'          = 'Marcador de carpeta.'
-    'tests/mocks/mock_hal.h'        = 'Declaraciones comunes de los mocks del HAL para las pruebas de PC.'
-    'tests/mocks/mock_hal_gpio.c'   = 'Mock del HAL de GPIO (registra enables y estado del driver).'
-    'tests/mocks/mock_hal_i2c.c'    = 'Mock del HAL de I2C (simula registros del AS5600).'
-    'tests/mocks/mock_hal_pwm.c'    = 'Mock del HAL de PWM (captura el duty aplicado a cada canal).'
-    'tests/mocks/.gitkeep'          = 'Marcador de carpeta.'
-    'tests/test_bts7960.c'          = 'Pruebas del driver BTS7960 (exclusion RPWM/LPWM, freno antes de invertir).'
-    'tests/test_as5600.c'           = 'Pruebas del driver AS5600.'
-    'tests/test_rom_calib.c'        = 'Pruebas de la calibracion del rango (ROM).'
-    'tests/test_intent.c'           = 'Pruebas de la logica de intencion (XOR de EMG).'
-    'tests/test_limits.c'           = 'Pruebas de la logica de limites por angulo.'
-    'tests/test_power.c'            = 'Pruebas de la logica de potencia (rampas y topes de duty).'
-    'tests/test_control_chain.c'    = 'Prueba de integracion de la cadena de control (intent -> limits -> power).'
-    'tests/test_emg.c'              = 'Pruebas del canal EMG (envolvente, activo, picos y saturacion).'
-    'tests/test_supervisor.c'       = 'Pruebas del supervisor: transiciones, rearme y fallas.'
-    'tests/test_motor_output.c'     = 'Pruebas de la salida al motor (control+limites -> BTS7960 con mocks).'
+    'Pruebas/unitarias/CMakeLists.txt'          = 'Build de las pruebas de PC (Unity): define cada target test_<modulo> y sus fuentes.'
+    'Pruebas/unitarias/unity/unity.c'           = 'Framework de pruebas Unity (implementacion).'
+    'Pruebas/unitarias/unity/unity.h'           = 'Framework de pruebas Unity (API).'
+    'Pruebas/unitarias/unity/unity_internals.h' = 'Framework de pruebas Unity (internos).'
+    'Pruebas/unitarias/unity/.gitkeep'          = 'Marcador de carpeta.'
+    'Pruebas/unitarias/mocks/mock_hal.h'        = 'Declaraciones comunes de los mocks del HAL para las pruebas de PC.'
+    'Pruebas/unitarias/mocks/mock_hal_gpio.c'   = 'Mock del HAL de GPIO (registra enables y estado del driver).'
+    'Pruebas/unitarias/mocks/mock_hal_i2c.c'    = 'Mock del HAL de I2C (simula registros del AS5600).'
+    'Pruebas/unitarias/mocks/mock_hal_pwm.c'    = 'Mock del HAL de PWM (captura el duty aplicado a cada canal).'
+    'Pruebas/unitarias/mocks/.gitkeep'          = 'Marcador de carpeta.'
+    'Pruebas/unitarias/test_bts7960.c'          = 'Pruebas del driver BTS7960 (exclusion RPWM/LPWM, freno antes de invertir).'
+    'Pruebas/unitarias/test_as5600.c'           = 'Pruebas del driver AS5600.'
+    'Pruebas/unitarias/test_rom_calib.c'        = 'Pruebas de la calibracion del rango (ROM).'
+    'Pruebas/unitarias/test_intent.c'           = 'Pruebas de la logica de intencion (XOR de EMG).'
+    'Pruebas/unitarias/test_limits.c'           = 'Pruebas de la logica de limites por angulo.'
+    'Pruebas/unitarias/test_power.c'            = 'Pruebas de la logica de potencia (rampas y topes de duty).'
+    'Pruebas/unitarias/test_control_chain.c'    = 'Prueba de integracion de la cadena de control (intent -> limits -> power).'
+    'Pruebas/unitarias/test_emg.c'              = 'Pruebas del canal EMG (envolvente, activo, picos y saturacion).'
+    'Pruebas/unitarias/test_supervisor.c'       = 'Pruebas del supervisor: transiciones, rearme y fallas.'
+    'Pruebas/unitarias/test_motor_output.c'     = 'Pruebas de la salida al motor (control+limites -> BTS7960 con mocks).'
 
     'tools/flash.sh'                = 'Script de carga del firmware a la placa.'
-    'tools/telemetry_plot.py'       = 'Graficado de la telemetria recibida por USB.'
-    'tools/run_tests_wsl.ps1'       = 'Forma oficial de correr las pruebas de PC: compila y ejecuta Unity en WSL 2.'
+    'Pruebas/telemetry_plot.py'       = 'Graficado de la telemetria recibida por USB.'
+    'Pruebas/unitarias/run_tests_wsl.ps1'       = 'Forma oficial de correr las pruebas de PC: compila y ejecuta Unity en WSL 2.'
     'tools/make_uf2_wsl.ps1'        = 'Genera el .uf2 del firmware usando WSL.'
     'tools/make_entregas.ps1'       = 'Este script: regenera los zips de entrega por fase y el indice.'
 }
@@ -161,7 +161,7 @@ $Fases = @(
             'src/hal/hal_pwm.c','src/hal/hal_pwm.h',
             'src/hal/hal_time.c','src/hal/hal_time.h',
             'src/hal/hal_wdt.c','src/hal/hal_wdt.h',
-            'src/diag/fase1_check.c'
+            'Pruebas/banco/fase1_hal/fase1_check.c'
         )
     },
     [ordered]@{
@@ -169,7 +169,7 @@ $Fases = @(
         Titulo  = 'Fase 2 - Motor (driver BTS7960)'
         Tag     = 'fase-2'
         Que     = 'Driver del puente H BTS7960 con sus reglas de seguridad (RPWM y LPWM nunca con duty a la vez, freno a 0 antes de invertir), el HAL de PWM que usa, el banco fase2_check para probar el motor sin carga por comandos serie, y las pruebas de PC del driver con sus mocks.'
-        Pruebas = 'En WSL: tools/run_tests_wsl.ps1 (compila y corre todas). Solo esta fase: ctest --test-dir build-tests-wsl -R test_bts7960'
+        Pruebas = 'En WSL: Pruebas/unitarias/run_tests_wsl.ps1 (compila y corre todas). Solo esta fase: ctest --test-dir build-tests-wsl -R test_bts7960'
         Commits = @(
             '1de50de - feat(bts7960): driver del puente H con pruebas en PC',
             '578fe3c - feat(diag): programa de banco fase2_check del BTS7960',
@@ -179,9 +179,9 @@ $Fases = @(
         Files   = @(
             'src/actuators/bts7960.c','src/actuators/bts7960.h',
             'src/hal/hal_pwm.c','src/hal/hal_pwm.h',
-            'src/diag/fase2_check.c',
-            'tests/test_bts7960.c',
-            'tests/mocks/mock_hal.h','tests/mocks/mock_hal_gpio.c','tests/mocks/mock_hal_pwm.c'
+            'Pruebas/banco/fase2_motor/fase2_check.c',
+            'Pruebas/unitarias/test_bts7960.c',
+            'Pruebas/unitarias/mocks/mock_hal.h','Pruebas/unitarias/mocks/mock_hal_gpio.c','Pruebas/unitarias/mocks/mock_hal_pwm.c'
         )
     },
     [ordered]@{
@@ -189,7 +189,7 @@ $Fases = @(
         Titulo  = 'Fase 3 - Encoder AS5600 y calibracion del rango'
         Tag     = 'fase-3'
         Que     = 'Driver del encoder magnetico AS5600 por I2C, la calibracion del rango de movimiento del paciente (rom_calib), la UI basica que usa el banco, el banco fase3_check y las pruebas de PC del encoder y de la calibracion.'
-        Pruebas = 'En WSL: tools/run_tests_wsl.ps1. Solo esta fase: ctest --test-dir build-tests-wsl -R "test_as5600|test_rom_calib"'
+        Pruebas = 'En WSL: Pruebas/unitarias/run_tests_wsl.ps1. Solo esta fase: ctest --test-dir build-tests-wsl -R "test_as5600|test_rom_calib"'
         Commits = @(
             '1378570 - feat(sensors): driver AS5600 y calibracion del rango del paciente (Fase 3)',
             'd9f967b - feat(diag): mostrar la lectura cruda del AS5600 durante la calibracion'
@@ -197,10 +197,10 @@ $Fases = @(
         Files   = @(
             'src/sensors/as5600.c','src/sensors/as5600.h',
             'src/sensors/rom_calib.c','src/sensors/rom_calib.h',
-            'src/diag/fase3_check.c',
+            'Pruebas/banco/fase3_encoder/fase3_check.c',
             'src/app/ui.h','src/app/ui_basic.c','src/app/ui_basic.h',
-            'tests/test_as5600.c','tests/test_rom_calib.c',
-            'tests/mocks/mock_hal.h','tests/mocks/mock_hal_i2c.c'
+            'Pruebas/unitarias/test_as5600.c','Pruebas/unitarias/test_rom_calib.c',
+            'Pruebas/unitarias/mocks/mock_hal.h','Pruebas/unitarias/mocks/mock_hal_i2c.c'
         )
     },
     [ordered]@{
@@ -208,21 +208,21 @@ $Fases = @(
         Titulo  = 'Fase 4 - Control (logica pura)'
         Tag     = 'fase-4'
         Que     = 'Logica de control pura y probable en PC: intencion (XOR de los dos EMG), limites por angulo y potencia (intensidad EMG -> duty con rampas y topes). Sin dependencias del hardware; incluye la prueba de integracion de toda la cadena.'
-        Pruebas = 'En WSL: tools/run_tests_wsl.ps1. Solo esta fase: ctest --test-dir build-tests-wsl -R "test_intent|test_limits|test_power|test_control_chain"'
+        Pruebas = 'En WSL: Pruebas/unitarias/run_tests_wsl.ps1. Solo esta fase: ctest --test-dir build-tests-wsl -R "test_intent|test_limits|test_power|test_control_chain"'
         Commits = @('661e69f - feat(control): logica pura de intencion, limites y potencia (numerado Fase 5 en el repo)')
         Files   = @(
             'src/control/intent.c','src/control/intent.h',
             'src/control/limits.c','src/control/limits.h',
             'src/control/power.c','src/control/power.h',
-            'tests/test_intent.c','tests/test_limits.c','tests/test_power.c','tests/test_control_chain.c'
+            'Pruebas/unitarias/test_intent.c','Pruebas/unitarias/test_limits.c','Pruebas/unitarias/test_power.c','Pruebas/unitarias/test_control_chain.c'
         )
     },
     [ordered]@{
         Zip     = 'fase5_emg.zip'
         Titulo  = 'Fase 5 - EMG (canal y calibracion)'
         Tag     = 'fase-5'
-        Que     = 'Procesamiento del canal EMG (envolvente, deteccion de activo e intensidad) y su calibracion por musculo (reposo y contraccion maxima). Incluye el banco fase4_check (asi se llama en el repo, pero ejercita el EMG) y las pruebas de PC del canal.'
-        Pruebas = 'En WSL: tools/run_tests_wsl.ps1. Solo esta fase: ctest --test-dir build-tests-wsl -R test_emg'
+        Que     = 'Procesamiento del canal EMG (envolvente, deteccion de activo e intensidad) y su calibracion por musculo (reposo y contraccion maxima). Incluye el banco emg_check (antes fase4_check en el repo) y las pruebas de PC del canal.'
+        Pruebas = 'En WSL: Pruebas/unitarias/run_tests_wsl.ps1. Solo esta fase: ctest --test-dir build-tests-wsl -R test_emg'
         Commits = @(
             'bfffe3c - feat(emg): canal EMG, calibracion y banco fase4_check (numerado Fase 4 en el repo)',
             '8c6d9a6 - fix(emg): corregir test del pico corto y cubrir artefacto por saturacion'
@@ -230,8 +230,8 @@ $Fases = @(
         Files   = @(
             'src/sensors/emg.c','src/sensors/emg.h',
             'src/sensors/emg_calib.c','src/sensors/emg_calib.h',
-            'src/diag/fase4_check.c',
-            'tests/test_emg.c'
+            'Pruebas/banco/emg/emg_check.c',
+            'Pruebas/unitarias/test_emg.c'
         )
     },
     [ordered]@{
@@ -239,7 +239,7 @@ $Fases = @(
         Titulo  = 'Fase 6 - Supervisor, app y firmware integrado'
         Tag     = 'fase-6'
         Que     = 'Maquina de estados de seguridad (supervisor) con vigilancia de angulo, el ciclo de aplicacion que integra sensores + control + supervisor + motor + watchdog, el main del firmware, la documentacion de la maquina de estados y las pruebas del supervisor y de la salida al motor.'
-        Pruebas = 'En WSL: tools/run_tests_wsl.ps1. Solo esta fase: ctest --test-dir build-tests-wsl -R "test_supervisor|test_motor_output"'
+        Pruebas = 'En WSL: Pruebas/unitarias/run_tests_wsl.ps1. Solo esta fase: ctest --test-dir build-tests-wsl -R "test_supervisor|test_motor_output"'
         Commits = @(
             '2a75e87 - feat(supervisor): maquina de estados de seguridad',
             '8cb479c - feat(app): integracion del ciclo y watchdog',
@@ -257,8 +257,8 @@ $Fases = @(
             'src/app/telemetry.c','src/app/telemetry.h',
             'src/main.c',
             'docs/state_machine.md',
-            'tests/test_supervisor.c','tests/test_motor_output.c',
-            'tests/mocks/mock_hal.h','tests/mocks/mock_hal_gpio.c','tests/mocks/mock_hal_pwm.c'
+            'Pruebas/unitarias/test_supervisor.c','Pruebas/unitarias/test_motor_output.c',
+            'Pruebas/unitarias/mocks/mock_hal.h','Pruebas/unitarias/mocks/mock_hal_gpio.c','Pruebas/unitarias/mocks/mock_hal_pwm.c'
         )
     },
     [ordered]@{
@@ -266,7 +266,7 @@ $Fases = @(
         Titulo  = 'Herramientas y framework de pruebas'
         Tag     = ''
         Que     = 'No es una fase: reune los scripts de tools/ (pruebas y uf2 por WSL, carga, graficado y este generador de entregas) y el framework de pruebas completo (Unity, todos los mocks del HAL y el CMake de pruebas). Es lo transversal que usan todas las fases.'
-        Pruebas = 'Es el framework en si. Forma oficial de correr las pruebas: tools/run_tests_wsl.ps1 (compila y corre Unity en WSL 2, build en build-tests-wsl/).'
+        Pruebas = 'Es el framework en si. Forma oficial de correr las pruebas: Pruebas/unitarias/run_tests_wsl.ps1 (compila y corre Unity en WSL 2, build en build-tests-wsl/).'
         Commits = @(
             'c38da4c - chore(fase-0): tools/ y tests/ iniciales',
             '1de50de - feat(bts7960): Unity y primeros mocks',
@@ -275,10 +275,10 @@ $Fases = @(
             'c53d55a - chore(tools): generar uf2 por WSL'
         )
         Files   = @(
-            'tools/flash.sh','tools/telemetry_plot.py','tools/run_tests_wsl.ps1','tools/make_uf2_wsl.ps1','tools/make_entregas.ps1',
-            'tests/CMakeLists.txt',
-            'tests/unity/unity.c','tests/unity/unity.h','tests/unity/unity_internals.h','tests/unity/.gitkeep',
-            'tests/mocks/mock_hal.h','tests/mocks/mock_hal_gpio.c','tests/mocks/mock_hal_i2c.c','tests/mocks/mock_hal_pwm.c','tests/mocks/.gitkeep'
+            'tools/flash.sh','Pruebas/telemetry_plot.py','Pruebas/unitarias/run_tests_wsl.ps1','tools/make_uf2_wsl.ps1','tools/make_entregas.ps1',
+            'Pruebas/unitarias/CMakeLists.txt',
+            'Pruebas/unitarias/unity/unity.c','Pruebas/unitarias/unity/unity.h','Pruebas/unitarias/unity/unity_internals.h','Pruebas/unitarias/unity/.gitkeep',
+            'Pruebas/unitarias/mocks/mock_hal.h','Pruebas/unitarias/mocks/mock_hal_gpio.c','Pruebas/unitarias/mocks/mock_hal_i2c.c','Pruebas/unitarias/mocks/mock_hal_pwm.c','Pruebas/unitarias/mocks/.gitkeep'
         )
     }
 )
@@ -362,7 +362,7 @@ $r = New-Object System.Text.StringBuilder
 [void]$r.AppendLine("")
 [void]$r.AppendLine("Cada zip contiene el codigo, las pruebas y el diagnostico de una fase, mas un ``LEEME.md`` que explica que hace la fase, lista sus archivos, como correr sus pruebas y los commits que la componen. Los zips se regeneran con ``tools/make_entregas.ps1`` y no se versionan (estan en .gitignore); este indice y el script si.")
 [void]$r.AppendLine("")
-[void]$r.AppendLine("Nota: la numeracion interna del repo cruza control y EMG (el commit de control dice 'Fase 5', el de EMG 'Fase 4', y el banco se llama fase4_check). Estas entregas se numeran por contenido: fase4 = control, fase5 = EMG.")
+[void]$r.AppendLine("Nota: la numeracion interna del repo cruza control y EMG (el commit de control dice 'Fase 5', el de EMG 'Fase 4', y el banco ahora se llama emg_check -antes fase4_check-). Estas entregas se numeran por contenido: fase4 = control, fase5 = EMG.")
 [void]$r.AppendLine("")
 [void]$r.AppendLine("## Indice")
 [void]$r.AppendLine("")
