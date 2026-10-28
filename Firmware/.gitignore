@@ -1,0 +1,32 @@
+# Entregas: carpeta local, no se versiona (los zips se regeneran con make_entregas.ps1)
+entregas/
+
+# Directorios de build
+build/
+build-tests/
+build-tests-wsl/
+cmake-build-*/
+
+# Artefactos del firmware
+*.uf2
+*.elf
+*.bin
+*.hex
+*.map
+*.dis
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+compile_commands.json
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+*.swp
+
+# Configuración local de VS Code: no se versiona (ver README, "Abrir el proyecto en VS Code")
+.vscode/
+
+# Guía de trabajo con Claude Code: local, no va al repo del equipo
+CLAUDE.md
