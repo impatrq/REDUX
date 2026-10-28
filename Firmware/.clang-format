@@ -1,0 +1,18 @@
+# Estilo de código único del proyecto REDUX: base LLVM, 4 espacios, 100 columnas.
+# Se aplica antes de cada commit (ver CLAUDE.md y docs/PLAN.md).
+---
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: c++11
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+PointerAlignment: Right
+AlignAfterOpenBracket: Align
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+IndentCaseLabels: true
+KeepEmptyLinesAtTheStartOfBlocks: false
+SortIncludes: true
