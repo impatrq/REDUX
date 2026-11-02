@@ -73,6 +73,11 @@ _Static_assert(DUTY_MIN < DUTY_MAX, "DUTY_MIN debe ser menor que DUTY_MAX");
 #define EMG_MARGIN_MIN 30.0f       // margen mínimo (cuentas de envolvente) sobre la media
 #define EMG_OFF_FRAC 0.6f          // histéresis: umbral de desactivación = media + margen·frac
 #define EMG_REST_NOISE_MAX 60.0f   // desvío de reposo máximo; si se supera => "ruido en reposo"
+// Media de reposo máxima (cuentas de envolvente). Con la señal ya rectificada, un reposo
+// real puede quedar muy cerca de 0 (medimos ~40 mV ≈ 50 cuentas, o menos), así que NO se
+// rechaza por media baja: la entrada al aire se detecta por el ruido (EMG_REST_NOISE_MAX).
+// Una media alta sí es anómala (línea DC, electrodo mal puesto): 2000 cuentas ≈ 1,6 V.
+#define EMG_REST_MEAN_MAX 2000.0f  // media de reposo máxima; si se supera => "reposo anómalo"
 #define EMG_MVC_USE 0.8f           // intensidad 1.0 queda a esta fracción del pico sobre el reposo
 #define EMG_MVC_MIN_RATIO 1.5f     // el pico debe superar el umbral por este factor o => "débil"
 
@@ -98,12 +103,22 @@ _Static_assert(DUTY_MIN < DUTY_MAX, "DUTY_MIN debe ser menor que DUTY_MAX");
 #define STATUS_LINE_MAX 160u     // largo máximo de una línea de estado
 #define APP_CMD_LINE_MAX 32u     // largo máximo de una línea de comando por USB
 
-// Fuente de la señal EMG. En esta fase (banco, sin electrodos) se usa SERIAL: el ADC
-// flotante con los electrodos desconectados podría activar el motor. En la Fase 8, con
-// el paciente y los EMG conectados, pasar EMG_SOURCE a EMG_SOURCE_ADC.
-#define EMG_SOURCE_ADC 0    // señal real por ADC (GP26/GP27)
+// Fuente de la señal EMG, elegible POR CANAL (bíceps y tríceps por separado). En el banco
+// (sin electrodos) se usa SERIAL: el ADC flotante con los electrodos desconectados podría
+// activar el motor. Para la prueba con el bíceps real todavía sin sensor de tríceps se usa
+// la combinación mixta (bíceps ADC, tríceps SERIAL).
+#define EMG_SOURCE_ADC 0    // señal real por ADC (GP26 bíceps / GP27 tríceps)
 #define EMG_SOURCE_SERIAL 1 // señal simulada por comandos de serie ("b N", "t N", "r")
-#define EMG_SOURCE EMG_SOURCE_SERIAL
+
+// Fuente por canal. Se puede elegir al compilar SIN editar este archivo, con las opciones
+// de CMake REDUX_EMG_BIC / REDUX_EMG_TRI (valores ADC o SERIAL), que el CMakeLists traduce
+// a estos macros. Si no se pasan, el default es SERIAL en ambos (banco, como hasta ahora).
+#ifndef EMG_SOURCE_BIC
+#define EMG_SOURCE_BIC EMG_SOURCE_SERIAL
+#endif
+#ifndef EMG_SOURCE_TRI
+#define EMG_SOURCE_TRI EMG_SOURCE_SERIAL
+#endif
 
 // Modo banco: limita el duty del motor a un techo más seguro (DUTY_MAX_BENCH) mientras
 // se prueba sin el brazo. Desactivar (BENCH_MODE 0) para los valores finales.

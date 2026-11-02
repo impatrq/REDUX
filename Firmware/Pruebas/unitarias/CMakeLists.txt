@@ -80,6 +80,12 @@ redux_add_test(test_emg
 )
 target_link_libraries(test_emg PRIVATE m)
 
+# Fuente de EMG por canal (ADC/SERIAL): lógica pura, sin math ni hardware.
+redux_add_test(test_emg_source
+        test_emg_source.c
+        ${REDUX_ROOT}/src/sensors/emg_source.c
+)
+
 # --- Fase 5 · lógica de control pura (intent, limits, power) ------------------
 redux_add_test(test_intent
         test_intent.c

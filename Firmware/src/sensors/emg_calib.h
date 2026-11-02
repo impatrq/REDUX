@@ -23,7 +23,8 @@ typedef enum {
 // Motivo por el que falló la última toma.
 typedef enum {
     EMG_CAL_ERR_NONE,       // sin error
-    EMG_CAL_ERR_REST_NOISE, // desvío en reposo demasiado alto (electrodo flojo)
+    EMG_CAL_ERR_REST_NOISE, // desvío en reposo demasiado alto (electrodo flojo / aire)
+    EMG_CAL_ERR_REST_MEAN,  // media en reposo demasiado alta (reposo anómalo: línea DC)
     EMG_CAL_ERR_WEAK_MVC,   // la contracción máxima fue demasiado débil
 } emg_cal_error_t;
 

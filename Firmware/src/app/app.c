@@ -4,8 +4,6 @@
 
 #include "app.h"
 
-#include <stdlib.h> // atoi (solo fuente simulada)
-
 #include "config.h"
 
 #include "angle_watch.h"
@@ -27,10 +25,16 @@
 
 #include "ui.h"
 
-#if EMG_SOURCE == EMG_SOURCE_ADC
 #include "emg.h"
 #include "emg_calib.h"
-#endif
+#include "emg_source.h"
+
+// Fuente de cada canal, resuelta en tiempo de compilación (ver EMG_SOURCE_BIC/TRI en
+// config.h, elegibles con -DREDUX_EMG_BIC / -DREDUX_EMG_TRI). Las rutas ADC y SERIAL
+// conviven: en la combinación mixta se compilan las dos.
+#define EMG_BIC_ADC (EMG_SOURCE_BIC == EMG_SOURCE_ADC)
+#define EMG_TRI_ADC (EMG_SOURCE_TRI == EMG_SOURCE_ADC)
+#define EMG_ANY_ADC (EMG_BIC_ADC || EMG_TRI_ADC)
 
 // --- Estado del ciclo (sin globales ocultas fuera de este módulo) -------------
 static supervisor_t g_sv;
@@ -71,16 +75,24 @@ static direction_t dir_from_intent(intent_t in) {
 }
 
 // =============================================================================
-//  Fuente de EMG: real por ADC, o simulada por serie (banco). Según EMG_SOURCE.
+//  Fuente de EMG por canal: cada canal real por ADC o simulado por serie. En la
+//  combinación mixta (p. ej. bíceps ADC, tríceps SERIAL) conviven las dos rutas.
 // =============================================================================
-#if EMG_SOURCE == EMG_SOURCE_ADC
+static emg_source_t g_src; // fuente de cada canal + intensidad de los simulados
 
-static emg_channel_t g_ch_b, g_ch_t;
-static emg_calib_t g_cal_b, g_cal_t;
+#if EMG_BIC_ADC
+static emg_channel_t g_ch_b;
+static emg_calib_t g_cal_b;
+#endif
+#if EMG_TRI_ADC
+static emg_channel_t g_ch_t;
+static emg_calib_t g_cal_t;
+#endif
 
-// Sub-secuencia de la toma de contracción máxima (bíceps y luego tríceps).
+#if EMG_ANY_ADC
+// Sub-secuencia de la toma de contracción máxima: solo los canales ADC piden MVC.
 typedef enum { MVC_B_WAIT, MVC_B_RUN, MVC_T_WAIT, MVC_T_RUN, MVC_DONE } mvc_step_t;
-static mvc_step_t g_mvc = MVC_B_WAIT;
+static mvc_step_t g_mvc = MVC_DONE;
 
 static uint16_t read_oversampled(uint8_t adc_channel) {
     uint32_t acc = 0u;
@@ -89,50 +101,136 @@ static uint16_t read_oversampled(uint8_t adc_channel) {
     }
     return (uint16_t)(acc / EMG_OVERSAMPLE);
 }
+#endif
 
 static void read_emg(emg_in_t *e) {
-    const float env_b = emg_update(&g_ch_b, read_oversampled(ADC_CH_BICEPS));
-    const float env_t = emg_update(&g_ch_t, read_oversampled(ADC_CH_TRICEPS));
-    e->env_b = env_b;
-    e->env_t = env_t;
+    bool saturated = false;
+#if EMG_BIC_ADC
+    e->env_b = emg_update(&g_ch_b, read_oversampled(ADC_CH_BICEPS));
     e->bic_on = emg_is_active(&g_ch_b);
-    e->tri_on = emg_is_active(&g_ch_t);
     e->inten_b = emg_intensity(&g_ch_b);
+    saturated = saturated || emg_is_saturated(&g_ch_b);
+#else
+    e->inten_b = emg_source_bic_level(&g_src);
+    e->env_b = e->inten_b * 100.0f; // nivel simulado (0–100) para la telemetría
+    e->bic_on = (e->inten_b > 0.0f);
+#endif
+#if EMG_TRI_ADC
+    e->env_t = emg_update(&g_ch_t, read_oversampled(ADC_CH_TRICEPS));
+    e->tri_on = emg_is_active(&g_ch_t);
     e->inten_t = emg_intensity(&g_ch_t);
-    e->saturated = emg_is_saturated(&g_ch_b) || emg_is_saturated(&g_ch_t);
+    saturated = saturated || emg_is_saturated(&g_ch_t);
+#else
+    e->inten_t = emg_source_tri_level(&g_src);
+    e->env_t = e->inten_t * 100.0f;
+    e->tri_on = (e->inten_t > 0.0f);
+#endif
+    e->saturated = saturated; // la señal simulada no satura
     e->rest = !e->bic_on && !e->tri_on;
 }
 
-// Arranca la toma de reposo de ambos canales al entrar a ST_CALIB_REST.
+#if EMG_ANY_ADC
+// Anuncia el motivo del rechazo del reposo de un canal ADC (el primero que falló).
+static void announce_rest_fail(void) {
+    emg_cal_error_t err = EMG_CAL_ERR_NONE;
+#if EMG_BIC_ADC
+    if (emg_calib_failed(&g_cal_b)) {
+        err = g_cal_b.error;
+    }
+#endif
+#if EMG_TRI_ADC
+    if (err == EMG_CAL_ERR_NONE && emg_calib_failed(&g_cal_t)) {
+        err = g_cal_t.error;
+    }
+#endif
+    switch (err) {
+    case EMG_CAL_ERR_REST_NOISE:
+        ui_message("Reposo invalido: ruido alto (electrodo flojo o entrada al aire). 'recal'.");
+        break;
+    case EMG_CAL_ERR_REST_MEAN:
+        ui_message("Reposo invalido: media anomala (reposo anomalo o linea DC). 'recal'.");
+        break;
+    default:
+        ui_message("Reposo invalido. 'recal'.");
+        break;
+    }
+}
+#endif
+
+// Arranca la toma de reposo al entrar a ST_CALIB_REST. Solo los canales ADC toman reposo
+// real; los simulados tienen la calibración autocompletada.
 static void emg_calib_enter_rest(void) {
+#if EMG_BIC_ADC
     emg_calib_rest_begin(&g_cal_b, &g_ch_b);
+#endif
+#if EMG_TRI_ADC
     emg_calib_rest_begin(&g_cal_t, &g_ch_t);
-    ui_message("Calib EMG reposo: relaje ambos musculos y sostenga.");
+#endif
+#if EMG_ANY_ADC
+    ui_message("Calib EMG reposo: relaje el musculo real y sostenga.");
+#else
+    ui_message("Calib EMG: fuente simulada, calibracion autocompletada.");
+#endif
 }
 
 static void emg_calib_enter_mvc(void) {
+#if EMG_BIC_ADC
     g_mvc = MVC_B_WAIT;
     ui_set_waiting(true);
     ui_message("Calib EMG: contraiga BICEPS al maximo y confirme (pulsador u 'ok').");
+#elif EMG_TRI_ADC
+    g_mvc = MVC_T_WAIT;
+    ui_set_waiting(true);
+    ui_message("Calib EMG: contraiga TRICEPS al maximo y confirme (pulsador u 'ok').");
+#else
+    ui_message("Calib EMG: fuente simulada, calibracion autocompletada.");
+#endif
 }
 
-// Alimenta la toma de reposo; devuelve done/failed del par de canales.
+// Alimenta la toma de reposo; devuelve done/failed. Con ambos canales simulados no hay
+// nada que medir y termina de inmediato.
 static void emg_rest_feed(const emg_in_t *e, bool *done, bool *failed) {
+#if EMG_ANY_ADC
+    bool running = false;
+#if EMG_BIC_ADC
     emg_calib_add(&g_cal_b, e->env_b);
+    running = running || (g_cal_b.phase == EMG_CAL_REST_RUN);
+#endif
+#if EMG_TRI_ADC
     emg_calib_add(&g_cal_t, e->env_t);
-    const bool b_run = (g_cal_b.phase == EMG_CAL_REST_RUN);
-    const bool t_run = (g_cal_t.phase == EMG_CAL_REST_RUN);
-    if (b_run || t_run) {
+    running = running || (g_cal_t.phase == EMG_CAL_REST_RUN);
+#endif
+    if (running) {
         return; // todavía tomando
     }
-    *failed = emg_calib_failed(&g_cal_b) || emg_calib_failed(&g_cal_t);
-    *done = !*failed;
-    ui_message(*done ? "Reposo OK." : "Reposo invalido (electrodo flojo). 'recal'.");
+    bool any_failed = false;
+#if EMG_BIC_ADC
+    any_failed = any_failed || emg_calib_failed(&g_cal_b);
+#endif
+#if EMG_TRI_ADC
+    any_failed = any_failed || emg_calib_failed(&g_cal_t);
+#endif
+    *failed = any_failed;
+    *done = !any_failed;
+    if (any_failed) {
+        announce_rest_fail();
+    } else {
+        ui_message("Reposo OK.");
+    }
+#else
+    (void)e;
+    (void)failed;
+    *done = true; // ambos canales simulados: calibración autocompletada
+#endif
 }
 
-// Avanza la sub-secuencia de MVC con el evento y la envolvente del tick.
+// Avanza la sub-secuencia de MVC. Solo recorre los canales ADC; los simulados se saltan.
 static void emg_mvc_feed(const emg_in_t *e, ui_event_t ev, bool *done) {
+#if EMG_ANY_ADC
+    (void)e;
+    (void)ev;
     switch (g_mvc) {
+#if EMG_BIC_ADC
     case MVC_B_WAIT:
         if (ev == UI_EV_CONFIRM) {
             emg_calib_mvc_begin(&g_cal_b, &g_ch_b);
@@ -148,12 +246,19 @@ static void emg_mvc_feed(const emg_in_t *e, ui_event_t ev, bool *done) {
                 ui_message("MVC biceps debil. Reintente y confirme.");
                 g_mvc = MVC_B_WAIT;
             } else {
+#if EMG_TRI_ADC
                 ui_set_waiting(true);
                 ui_message("Biceps OK. Contraiga TRICEPS al maximo y confirme.");
                 g_mvc = MVC_T_WAIT;
+#else
+                ui_message("Biceps OK. Calibracion EMG completa.");
+                g_mvc = MVC_DONE;
+#endif
             }
         }
         break;
+#endif // EMG_BIC_ADC
+#if EMG_TRI_ADC
     case MVC_T_WAIT:
         if (ev == UI_EV_CONFIRM) {
             emg_calib_mvc_begin(&g_cal_t, &g_ch_t);
@@ -174,37 +279,30 @@ static void emg_mvc_feed(const emg_in_t *e, ui_event_t ev, bool *done) {
             }
         }
         break;
+#endif // EMG_TRI_ADC
     case MVC_DONE:
     default:
         break;
     }
     *done = (g_mvc == MVC_DONE);
-}
-
-static void emg_source_init(void) {
-    emg_init(&g_ch_b);
-    emg_init(&g_ch_t);
-}
-
-#else // EMG_SOURCE == EMG_SOURCE_SERIAL (banco: señal simulada por serie)
-
-static int g_sim_bic_pct = 0;
-static int g_sim_tri_pct = 0;
-
-static void read_emg(emg_in_t *e) {
-    e->inten_b = (float)g_sim_bic_pct / 100.0f;
-    e->inten_t = (float)g_sim_tri_pct / 100.0f;
-    e->env_b = (float)g_sim_bic_pct;
-    e->env_t = (float)g_sim_tri_pct;
-    e->bic_on = (g_sim_bic_pct > 0);
-    e->tri_on = (g_sim_tri_pct > 0);
-    e->saturated = false; // la señal simulada no satura
-    e->rest = !e->bic_on && !e->tri_on;
-}
-
-static void emg_source_init(void) {}
-
+#else
+    (void)e;
+    (void)ev;
+    *done = true; // ambos canales simulados: nada que medir
 #endif
+}
+
+// Inicializa la fuente por canal (desde los macros de config) y los canales ADC.
+static void emg_channels_init(void) {
+    emg_source_init(&g_src, EMG_BIC_ADC ? EMG_SRC_ADC : EMG_SRC_SERIAL,
+                    EMG_TRI_ADC ? EMG_SRC_ADC : EMG_SRC_SERIAL);
+#if EMG_BIC_ADC
+    emg_init(&g_ch_b);
+#endif
+#if EMG_TRI_ADC
+    emg_init(&g_ch_t);
+#endif
+}
 
 // =============================================================================
 //  Lectura del encoder y armado del enc_fault según el estado.
@@ -293,19 +391,10 @@ static void run_calibration(sys_state_t state, const emg_in_t *e, ui_event_t ev,
         *failed = (g_rom.phase == ROM_FAILED);
         break;
     case ST_CALIB_REST:
+        emg_rest_feed(e, done, failed);
+        break;
     case ST_CALIB_MVC:
-#if EMG_SOURCE == EMG_SOURCE_ADC
-        if (state == ST_CALIB_REST) {
-            emg_rest_feed(e, done, failed);
-        } else {
-            emg_mvc_feed(e, ev, done);
-        }
-#else
-        (void)e;
-        (void)ev;
-        g_status.emg_simulated = true; // calibración de EMG autocompletada (banco)
-        *done = true;
-#endif
+        emg_mvc_feed(e, ev, done);
         break;
     default:
         break;
@@ -326,14 +415,10 @@ static void on_enter(sys_state_t to) {
         g_rom_last_phase = ROM_IDLE; // fuerza el anuncio de WAIT_FLEX
         break;
     case ST_CALIB_REST:
-#if EMG_SOURCE == EMG_SOURCE_ADC
         emg_calib_enter_rest();
-#endif
         break;
     case ST_CALIB_MVC:
-#if EMG_SOURCE == EMG_SOURCE_ADC
         emg_calib_enter_mvc();
-#endif
         break;
     case ST_ARMING:
         if (!g_wdt_on) {
@@ -399,7 +484,7 @@ void app_init(void) {
     angle_watch_reset(&g_aw);
     rom_calib_begin(&g_rom); // deja g_rom en estado conocido (no calibrado)
     g_rom.phase = ROM_IDLE;
-    emg_source_init();
+    emg_channels_init();
     g_wdt_on = false;
     g_tick = 0u;
     g_last_overrun = false;
@@ -412,7 +497,10 @@ void app_init(void) {
     g_status.encoder_raw = 0;
     g_status.dir = DIR_STOP;
     g_status.duty = 0.0f;
-    g_status.emg_simulated = (EMG_SOURCE == EMG_SOURCE_SERIAL);
+    // Qué canales son simulados (fuente serie): su calibración se autocompleta y se
+    // informa como simulado (simB/simT). Lo fija la fuente por canal, ya inicializada.
+    g_status.sim_bic = emg_source_bic_is_sim(&g_src);
+    g_status.sim_tri = emg_source_tri_is_sim(&g_src);
 
     ui_message("REDUX listo. Confirme (pulsador u 'ok') para iniciar.");
     supervisor_out_t out = {ST_BOOT, false, FAULT_NONE};
@@ -490,29 +578,17 @@ void app_get_status(app_status_t *out) {
 }
 
 bool app_feed_sim(const char *line) {
-#if EMG_SOURCE == EMG_SOURCE_SERIAL
-    if (line[0] == 'r' && line[1] == '\0') {
-        g_sim_bic_pct = 0;
-        g_sim_tri_pct = 0;
+    switch (emg_source_feed(&g_src, line)) {
+    case EMG_CMD_OK:
+        return true; // aplicado a un canal simulado (o "r")
+    case EMG_CMD_BIC_IS_ADC:
+        ui_message("Biceps en ADC: comando ignorado.");
+        return true; // era un comando de fuente: no pasa a la interfaz
+    case EMG_CMD_TRI_IS_ADC:
+        ui_message("Triceps en ADC: comando ignorado.");
         return true;
+    case EMG_CMD_NONE:
+    default:
+        return false; // no es "b"/"t"/"r": que lo procese la interfaz de usuario
     }
-    if ((line[0] == 'b' || line[0] == 't') && line[1] == ' ') {
-        int pct = atoi(&line[2]);
-        if (pct < 0) {
-            pct = 0;
-        } else if (pct > 100) {
-            pct = 100;
-        }
-        if (line[0] == 'b') {
-            g_sim_bic_pct = pct;
-        } else {
-            g_sim_tri_pct = pct;
-        }
-        return true;
-    }
-    return false;
-#else
-    (void)line;
-    return false;
-#endif
 }

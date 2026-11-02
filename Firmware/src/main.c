@@ -64,11 +64,11 @@ static void report_build(uint64_t now_us, uint64_t *last_us) {
     const char pwm = (s.dir == DIR_FLEX) ? 'R' : (s.dir == DIR_EXT) ? 'L' : '0';
     const int n = snprintf(
         g_rep, sizeof(g_rep),
-        "st=%s th=%.1f raw=%ld bic=%.0f/%.2f tri=%.0f/%.2f dir=%d pwm=%c duty=%.2f F=0x%02X sim=%d "
-        "trep=%lluus\n",
+        "st=%s th=%.1f raw=%ld bic=%.0f/%.2f tri=%.0f/%.2f dir=%d pwm=%c duty=%.2f F=0x%02X "
+        "simB=%d simT=%d trep=%lluus\n",
         state_name(s.state), (double)s.angle_deg, (long)s.encoder_raw, (double)s.env_bic,
         (double)s.intensity_bic, (double)s.env_tri, (double)s.intensity_tri, (int)s.dir, pwm,
-        (double)s.duty, (unsigned)s.faults, (int)s.emg_simulated,
+        (double)s.duty, (unsigned)s.faults, (int)s.sim_bic, (int)s.sim_tri,
         (unsigned long long)(hal_time_us() - build0));
 
     g_rep_len = (n > 0 && (size_t)n < sizeof(g_rep)) ? (size_t)n : 0u;
