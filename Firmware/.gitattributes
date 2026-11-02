@@ -1,0 +1,8 @@
+# Normalización de saltos de línea.
+#
+# Con core.autocrlf=true el working tree quedaba con CRLF. Los scripts que
+# corren en WSL/Linux (bash) deben tener siempre LF, porque bash falla si
+# recibe \r. Los .ps1 de este repo arman here-strings que luego se pasan a
+# bash dentro de WSL, así que también se fuerzan a LF.
+*.sh  text eol=lf
+*.ps1 text eol=lf
