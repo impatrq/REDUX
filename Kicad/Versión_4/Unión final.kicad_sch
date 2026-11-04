@@ -1,0 +1,356 @@
+(kicad_sch
+	(version 20260306)
+	(generator "eeschema")
+	(generator_version "10.0")
+	(uuid "aa9de165-ec0b-4e5d-93b2-6acf4c7022d1")
+	(paper "A4")
+	(lib_symbols)
+	(wire
+		(pts
+			(xy 100.33 46.99) (xy 100.33 81.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "55ca14ea-60ef-483a-9fc4-4aea5bf20cca")
+	)
+	(wire
+		(pts
+			(xy 95.25 76.2) (xy 87.63 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "56365104-7c06-4e88-87b1-c74b1b1f935a")
+	)
+	(wire
+		(pts
+			(xy 92.71 54.61) (xy 92.71 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5aa955c1-93d9-43a0-b8f0-134291e8b230")
+	)
+	(wire
+		(pts
+			(xy 102.87 44.45) (xy 102.87 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "63329ea1-60ff-49b4-b3d2-c3fbde2b52ad")
+	)
+	(wire
+		(pts
+			(xy 92.71 73.66) (xy 87.63 73.66)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "70be7ed9-79cf-4dc3-b043-24cc15586023")
+	)
+	(wire
+		(pts
+			(xy 87.63 44.45) (xy 102.87 44.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8931e0a8-cbc4-432f-b5f3-c5a53d1fc6a2")
+	)
+	(wire
+		(pts
+			(xy 100.33 81.28) (xy 87.63 81.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8ce05541-36a5-4763-a93f-e241c42c444e")
+	)
+	(wire
+		(pts
+			(xy 102.87 83.82) (xy 87.63 83.82)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9278f042-8793-4169-80ad-105737a1757d")
+	)
+	(wire
+		(pts
+			(xy 87.63 46.99) (xy 100.33 46.99)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9aadb567-2c92-49e4-8949-e9a7da9441d4")
+	)
+	(wire
+		(pts
+			(xy 95.25 52.07) (xy 95.25 76.2)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "aa07fef0-d879-4666-afe4-131e039499db")
+	)
+	(wire
+		(pts
+			(xy 87.63 78.74) (xy 97.79 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c0ffc501-6f95-4eab-93e3-f5ee49188b59")
+	)
+	(wire
+		(pts
+			(xy 87.63 49.53) (xy 97.79 49.53)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d3a4fa6c-96dc-4a5c-804a-5b2a8b07653f")
+	)
+	(wire
+		(pts
+			(xy 87.63 52.07) (xy 95.25 52.07)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "dd2dc1ed-01ee-4848-b68c-eb6db749c489")
+	)
+	(wire
+		(pts
+			(xy 97.79 49.53) (xy 97.79 78.74)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "e1890f96-4c5d-4472-9268-0950fcd5be5f")
+	)
+	(wire
+		(pts
+			(xy 87.63 54.61) (xy 92.71 54.61)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "f6cc3c4b-efe9-48f6-9dd7-7aaa6255d55d")
+	)
+	(sheet
+		(at 71.12 71.12)
+		(size 16.51 17.78)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "7b0780c7-cbce-4bf2-870a-2f6c4a66b8d9")
+		(property "Sheetname" "Etapa de alimentación"
+			(at 71.12 70.4084 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Etapa de alimentación.kicad_sch"
+			(at 71.12 89.4846 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "+5V" output
+			(at 87.63 83.82 0)
+			(uuid "e17f8dac-9303-43cb-8c42-4d339352d817")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "-5V" output
+			(at 87.63 81.28 0)
+			(uuid "8b813a17-03c9-48fe-befc-104a12a62eeb")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "GND" bidirectional
+			(at 87.63 78.74 0)
+			(uuid "240c98fd-833f-4693-a195-8d7fbc44ea26")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "In biceps" input
+			(at 87.63 76.2 0)
+			(uuid "b039a275-0a2d-469f-8dfa-b5da6bf71001")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "In triceps" input
+			(at 87.63 73.66 0)
+			(uuid "4bc5eb19-facb-4ff2-a52e-6fb686fcac64")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(instances
+			(project "Unión final"
+				(path "/aa9de165-ec0b-4e5d-93b2-6acf4c7022d1"
+					(page "3")
+				)
+			)
+		)
+	)
+	(sheet
+		(at 71.12 40.64)
+		(size 16.51 19.05)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(stroke
+			(width 0.1524)
+			(type solid)
+		)
+		(fill
+			(color 0 0 0 0)
+		)
+		(uuid "a05dad75-8338-485e-88c0-baf6d1fa19f2")
+		(property "Sheetname" "EMG SMD"
+			(at 71.12 39.9284 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left bottom)
+			)
+		)
+		(property "Sheetfile" "Sensor sEMG SMD.kicad_sch"
+			(at 71.12 60.2746 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left top)
+			)
+		)
+		(pin "+5V" input
+			(at 87.63 44.45 0)
+			(uuid "766507b8-93cb-497b-abca-ad5816af7e9f")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "-5V" input
+			(at 87.63 46.99 0)
+			(uuid "6db10449-42e2-4883-8085-c90182b034c5")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "GND" bidirectional
+			(at 87.63 49.53 0)
+			(uuid "05023afe-215d-4be9-a26d-ef15fd1e9fbd")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "Out biceps" output
+			(at 87.63 52.07 0)
+			(uuid "c14fdd5e-f064-4e37-a231-7133fcf59f7d")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(pin "Out triceps" output
+			(at 87.63 54.61 0)
+			(uuid "2bb6f19e-2bbd-487a-a6a7-37edb526d208")
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify right)
+			)
+		)
+		(instances
+			(project "Unión final"
+				(path "/aa9de165-ec0b-4e5d-93b2-6acf4c7022d1"
+					(page "2")
+				)
+			)
+		)
+	)
+	(sheet_instances
+		(path "/"
+			(page "1")
+		)
+	)
+	(embedded_fonts no)
+)
