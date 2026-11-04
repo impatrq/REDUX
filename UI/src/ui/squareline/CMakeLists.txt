@@ -1,0 +1,15 @@
+SET(SOURCES screens/ui_Inicio.c
+    screens/ui_Main.c
+    screens/ui_SettingScreen.c
+    screens/ui_ScreenBegin.c
+    screens/ui_ScreenMarcha.c
+    screens/ui_ScreenFalla.c
+    screens/ui_ScreenPerfil.c
+    screens/ui_ScreenEnding.c
+    screens/ui_WifiScreen.c
+    ui.c
+    components/ui_comp_hook.c
+    ui_helpers.c
+    images/ui_img_logotipo_nuevo_png.c)
+
+add_library(ui ${SOURCES})
