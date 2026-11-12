@@ -1,0 +1,15 @@
+LTspice 26.0.1 for Windows
+Circuit: C:\Users\gusta\Documents\GitHub\REDUX\Circuitos\Filtros_EMG\Low_Pass_500Hz\LTspice_LowPass\TransientAnalysis.net
+Start Time: Mon Nov  9 13:09:46 2026
+solver = Normal
+Maximum thread count: 4
+tnom = 27
+temp = 27
+method = trap
+Direct Newton iteration succeeded in finding operating point.
+Total elapsed time: 0.226 seconds.
+
+Files loaded:
+C:\Users\gusta\Documents\GitHub\REDUX\Circuitos\Filtros_EMG\Low_Pass_500Hz\LTspice_LowPass\TransientAnalysis.net
+C:\Users\gusta\AppData\Local\LTspice\lib\sub\ADA4096.lib
+
