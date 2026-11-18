@@ -1,6 +1,8 @@
-// test_supervisor.c · Pruebas del supervisor (Fase 6): secuencia completa BOOT->RUN,
-// falla del encoder en cada estado de calibración, RECALIBRATE desde RUN, CANCEL en
-// calibración, FAULT_OVERRUN con 3 sobrepasos seguidos (y que 2 no alcanzan), las dos
+// test_supervisor.c · Pruebas del supervisor (Fase 6 + sesiones): secuencia completa
+// BOOT->IDLE->RUN, inicio de sesión desde IDLE, falla del encoder en IDLE (vuelve a
+// CHECK_ENC) y en cada estado de calibración, RECALIBRATE desde RUN, CANCEL en
+// calibración (->IDLE) y en RUN (termina la sesión, ->IDLE), FAULT_OVERRUN con 3
+// sobrepasos seguidos (y que 2 no alcanzan), las dos
 // rutas de rearme (FAULT_ENC->CALIB_ROM; OVERRUN->ARMING sin perder calibración),
 // rearme que exige reposo, saturación de EMG en marcha, la invariante de motor_allowed
 // y un mini-test de integración (supervisor + cadena de control) para co-contracción y
@@ -38,7 +40,13 @@ static supervisor_out_t drive_to(supervisor_t *sv, sys_state_t target) {
     if (target == ST_CHECK_ENC) {
         return out;
     }
-    out = step(sv, (supervisor_in_t){0}); // CHECK_ENC -> CALIB_ROM (encoder OK)
+    out = step(sv, (supervisor_in_t){0}); // CHECK_ENC -> IDLE (encoder OK)
+    if (target == ST_IDLE) {
+        return out;
+    }
+    in = (supervisor_in_t){0};
+    in.ui_event = UI_EV_START_SESSION;
+    out = step(sv, in); // IDLE -> CALIB_ROM (inicio de sesión)
     if (target == ST_CALIB_ROM) {
         return out;
     }
@@ -91,6 +99,16 @@ void test_full_sequence_boot_to_run(void) {
     TEST_ASSERT_EQUAL_INT(ST_CHECK_ENC, out.state);
 
     out = step(&sv, (supervisor_in_t){0}); // encoder OK
+    TEST_ASSERT_EQUAL_INT(ST_IDLE, out.state);
+
+    // Desde IDLE, sin iniciar sesión no se calibra.
+    out = step(&sv, (supervisor_in_t){0});
+    TEST_ASSERT_EQUAL_INT(ST_IDLE, out.state);
+    TEST_ASSERT_FALSE(out.motor_allowed);
+
+    in = (supervisor_in_t){0};
+    in.ui_event = UI_EV_START_SESSION;
+    out = step(&sv, in);
     TEST_ASSERT_EQUAL_INT(ST_CALIB_ROM, out.state);
 
     in = (supervisor_in_t){0};
@@ -151,27 +169,67 @@ void test_recalibrate_from_run(void) {
     TEST_ASSERT_FALSE(out.motor_allowed);
 }
 
-void test_cancel_in_calibration(void) {
+void test_cancel_in_calibration_goes_to_idle(void) {
     supervisor_t sv;
     supervisor_init(&sv);
     drive_to(&sv, ST_CALIB_REST);
 
+    // CANCEL durante la calibración descarta la sesión en curso y vuelve a IDLE.
     supervisor_in_t in = {0};
     in.ui_event = UI_EV_CANCEL;
     supervisor_out_t out = step(&sv, in);
-    TEST_ASSERT_EQUAL_INT(ST_CHECK_ENC, out.state);
+    TEST_ASSERT_EQUAL_INT(ST_IDLE, out.state);
+    TEST_ASSERT_FALSE(out.motor_allowed);
 }
 
-void test_cancel_in_run_goes_to_arming(void) {
+void test_cancel_in_run_ends_session_goes_to_idle(void) {
     supervisor_t sv;
     supervisor_init(&sv);
     drive_to(&sv, ST_RUN);
 
+    // CANCEL (o el comando "fin") en marcha termina la sesión y vuelve a IDLE.
     supervisor_in_t in = {0};
     in.ui_event = UI_EV_CANCEL;
     supervisor_out_t out = step(&sv, in);
-    TEST_ASSERT_EQUAL_INT(ST_ARMING, out.state);
+    TEST_ASSERT_EQUAL_INT(ST_IDLE, out.state);
     TEST_ASSERT_FALSE(out.motor_allowed);
+}
+
+// --- ST_IDLE: falla de encoder y arranque de sesión ---------------------------
+void test_idle_enc_fault_back_to_check_enc(void) {
+    supervisor_t sv;
+    supervisor_init(&sv);
+    drive_to(&sv, ST_IDLE);
+
+    // Una falla del encoder en IDLE (motor ya apagado) vuelve a verificar el encoder.
+    supervisor_in_t in = {0};
+    in.enc_fault = FAULT_I2C;
+    supervisor_out_t out = step(&sv, in);
+    TEST_ASSERT_EQUAL_INT(ST_CHECK_ENC, out.state);
+    TEST_ASSERT_FALSE(out.motor_allowed);
+    // No es FAULT: no se arma causa de falla.
+    TEST_ASSERT_EQUAL_INT(FAULT_NONE, out.faults);
+}
+
+void test_idle_start_session_needs_no_fault(void) {
+    supervisor_t sv;
+    supervisor_init(&sv);
+    drive_to(&sv, ST_IDLE);
+
+    // Con el encoder OK, START_SESSION arranca la calibración.
+    supervisor_in_t in = {0};
+    in.ui_event = UI_EV_START_SESSION;
+    supervisor_out_t out = step(&sv, in);
+    TEST_ASSERT_EQUAL_INT(ST_CALIB_ROM, out.state);
+
+    // Pero si en el mismo tick hay falla de encoder, gana la vuelta a CHECK_ENC.
+    supervisor_init(&sv);
+    drive_to(&sv, ST_IDLE);
+    in = (supervisor_in_t){0};
+    in.enc_fault = FAULT_MAGNET;
+    in.ui_event = UI_EV_START_SESSION;
+    out = step(&sv, in);
+    TEST_ASSERT_EQUAL_INT(ST_CHECK_ENC, out.state);
 }
 
 // --- Sobrepaso de ciclo -------------------------------------------------------
@@ -289,8 +347,8 @@ void test_emg_saturation_faults_in_run(void) {
 
 // --- motor_allowed solo en RUN (barrido) --------------------------------------
 void test_motor_allowed_only_in_run(void) {
-    const sys_state_t states[] = {ST_CHECK_ENC, ST_CALIB_ROM, ST_CALIB_REST,
-                                  ST_CALIB_MVC,  ST_ARMING,    ST_RUN};
+    const sys_state_t states[] = {ST_CHECK_ENC, ST_IDLE,     ST_CALIB_ROM, ST_CALIB_REST,
+                                  ST_CALIB_MVC,  ST_ARMING,   ST_RUN};
     for (size_t i = 0; i < sizeof(states) / sizeof(states[0]); ++i) {
         supervisor_t sv;
         supervisor_init(&sv);
@@ -428,8 +486,10 @@ int main(void) {
     RUN_TEST(test_enc_fault_in_calib_rest);
     RUN_TEST(test_enc_fault_in_calib_mvc);
     RUN_TEST(test_recalibrate_from_run);
-    RUN_TEST(test_cancel_in_calibration);
-    RUN_TEST(test_cancel_in_run_goes_to_arming);
+    RUN_TEST(test_cancel_in_calibration_goes_to_idle);
+    RUN_TEST(test_cancel_in_run_ends_session_goes_to_idle);
+    RUN_TEST(test_idle_enc_fault_back_to_check_enc);
+    RUN_TEST(test_idle_start_session_needs_no_fault);
     RUN_TEST(test_overrun_three_consecutive_faults_two_not);
     RUN_TEST(test_rearm_after_enc_fault_goes_to_calib_rom);
     RUN_TEST(test_rearm_after_overrun_goes_to_arming);
