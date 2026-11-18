@@ -100,8 +100,19 @@ _Static_assert(DUTY_MIN < DUTY_MAX, "DUTY_MIN debe ser menor que DUTY_MAX");
 #define MAGNET_CHECK_TICKS 50u   // cada cuántos ticks se relee el estado del imán (0x0B)
 #define STATUS_REPORT_MS 100u    // período del reporte de estado por USB
 #define STATUS_TX_CHUNK 16u      // bytes del reporte que se drenan por vuelta del lazo
-#define STATUS_LINE_MAX 160u     // largo máximo de una línea de estado
+#define STATUS_LINE_MAX 200u     // largo máximo de una línea de estado (incluye pac/brazo/reps)
 #define APP_CMD_LINE_MAX 32u     // largo máximo de una línea de comando por USB
+
+// --- Sesiones y estadística por repetición -----------------------------------
+// Una repetición va del inicio de una flexión al inicio de la siguiente (0° = flexión
+// máxima: flexionar baja el ángulo). El detector usa una zona muerta para ignorar el
+// ruido del ángulo y los micro-cambios de dirección. Ver control/rep_stats.
+#define REP_DIR_DEADBAND_DEG 3.0f // reversión de dirección exigida para cerrar/abrir una rep
+#define REP_MIN_RANGE_DEG 5.0f    // rango mínimo (°) para contar una repetición
+#define REP_MIN_DURATION_MS 300u  // duración mínima (ms) para contar una repetición
+#define SESSION_MAX_REPS 500u     // tope de repeticiones guardadas por sesión (= API)
+#define SESSION_ID_MAX 20u        // "s" + 16 hex + '\0' = 18; redondeado a 20
+#define SESSION_TX_CHUNK 32u      // bytes del JSON @SESION drenados por vuelta del lazo
 
 // Fuente de la señal EMG, elegible POR CANAL (bíceps y tríceps por separado). En el banco
 // (sin electrodos) se usa SERIAL: el ADC flotante con los electrodos desconectados podría
