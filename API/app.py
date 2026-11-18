@@ -47,6 +47,10 @@ def create_app(config_object=Config):
     app.register_blueprint(bp_web)
     app.register_blueprint(bp_paginas)
 
+    from cli import registrar_cli
+
+    registrar_cli(app)
+
     with app.app_context():
         db.create_all()
 
