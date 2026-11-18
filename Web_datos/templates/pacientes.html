@@ -95,6 +95,8 @@
 {% block scripts %}
 <script>
 let modoEdicion = false;
+// Pacientes cargados, por id (evita meter datos en atributos HTML).
+const pacientesPorId = {};
 const modalPaciente = () => bootstrap.Modal.getOrCreateInstance(document.getElementById("modalPaciente"));
 const modalCuenta = () => bootstrap.Modal.getOrCreateInstance(document.getElementById("modalCuenta"));
 
@@ -103,10 +105,13 @@ async function cargar() {
     try {
         const pacientes = await obtenerJSON("/api/web/pacientes");
         if (!pacientes) return;
+        Object.keys(pacientesPorId).forEach(k => delete pacientesPorId[k]);
+        pacientes.forEach(p => { pacientesPorId[p.id] = p; });
         if (pacientes.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="subtitulo">Todavía no hay pacientes.</td></tr>';
             return;
         }
+        // Los botones llevan solo data-id; el manejo va por delegación (ver abajo).
         tbody.innerHTML = pacientes.map(p => `
             <tr>
                 <td>${p.id}</td>
@@ -114,9 +119,9 @@ async function cargar() {
                 <td>${p.edad ?? "-"}</td>
                 <td>${formatearFecha(p.ultima_sesion)}</td>
                 <td class="text-end">
-                    <button class="btn btn-sm btn-redux me-1" onclick='prepararEditar(${JSON.stringify(p)})'>Editar</button>
+                    <button class="btn btn-sm btn-redux me-1 js-editar" data-id="${p.id}">Editar</button>
                     <a class="btn btn-sm btn-ver me-1" href="/paciente/${p.id}/avance">Ver avance</a>
-                    <button class="btn btn-sm btn-redux" onclick="prepararCuenta(${p.id}, ${JSON.stringify(p.nombre)})" ${p.tiene_cuenta ? "disabled title='Ya tiene cuenta'" : ""}>Crear cuenta</button>
+                    <button class="btn btn-sm btn-redux js-cuenta" data-id="${p.id}" ${p.tiene_cuenta ? "disabled title='Ya tiene cuenta'" : ""}>Crear cuenta</button>
                 </td>
             </tr>`).join("");
     } catch (e) {
@@ -196,6 +201,20 @@ async function guardarCuenta() {
 
 function mostrar(id, msg) { const el = document.getElementById(id); el.textContent = msg; el.classList.remove("d-none"); }
 function ocultar(id) { document.getElementById(id).classList.add("d-none"); }
+
+// Delegación de clicks en la tabla: un solo listener para Editar y Crear cuenta.
+document.getElementById("tablaPacientes").addEventListener("click", (ev) => {
+    const btnEditar = ev.target.closest(".js-editar");
+    if (btnEditar) {
+        prepararEditar(pacientesPorId[btnEditar.dataset.id]);
+        return;
+    }
+    const btnCuenta = ev.target.closest(".js-cuenta");
+    if (btnCuenta && !btnCuenta.disabled) {
+        const p = pacientesPorId[btnCuenta.dataset.id];
+        prepararCuenta(p.id, p.nombre);
+    }
+});
 
 cargar();
 </script>

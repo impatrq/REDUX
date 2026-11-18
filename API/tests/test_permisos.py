@@ -59,3 +59,22 @@ def test_solo_medico_crea_cuentas(client, datos):
         json={"nombre_usuario": "x", "contrasena": "abcd"},
     )
     assert r.status_code == 403
+
+
+def test_crear_cuenta_de_paciente_y_luego_ingresar(client, datos):
+    # El medico crea la cuenta del paciente 5 (que todavia no tenia).
+    ingresar(client, "doc", "1234")
+    r = client.post(
+        "/api/web/paciente/5/cuenta",
+        json={"nombre_usuario": "pac5", "contrasena": "clave5"},
+    )
+    assert r.status_code == 201
+    assert r.get_json()["nombre_usuario"] == "pac5"
+    client.get("/salir")
+
+    # Se inicia sesion con la cuenta recien creada (302 = login ok y redirige).
+    assert ingresar(client, "pac5", "clave5").status_code == 302
+
+    # Y solo accede a su propio paciente (5), no a otro.
+    assert client.get("/api/web/paciente/5").status_code == 200
+    assert client.get("/api/web/paciente/3").status_code == 403
