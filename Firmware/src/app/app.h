@@ -24,7 +24,8 @@ typedef struct {
     float intensity_tri;  // intensidad del tríceps [0,1]
     direction_t dir;      // sentido aplicado al motor
     float duty;           // duty aplicado [0, DUTY_CEIL]
-    bool emg_simulated;   // true si la señal EMG viene de serie (banco) y la calib es simulada
+    bool sim_bic;         // bíceps simulado (fuente serie): calibración autocompletada
+    bool sim_tri;         // tríceps simulado (fuente serie): calibración autocompletada
 } app_status_t;
 
 // Inicializa el supervisor, los módulos y el estado del ciclo. Llamar una vez tras
@@ -39,10 +40,11 @@ void app_tick(bool loop_behind);
 // Copia la última instantánea del ciclo. No bloquea. Pensada para el reporte por USB.
 void app_get_status(app_status_t *out);
 
-// Alimenta un comando de la fuente de EMG simulada (solo con EMG_SOURCE_SERIAL):
-//   "b N" -> bíceps al N %   "t N" -> tríceps al N %   "r" -> ambos en reposo.
+// Alimenta un comando de la fuente de EMG simulada:
+//   "b N" -> bíceps al N %   "t N" -> tríceps al N %   "r" -> reposo de los simulados.
+// "b N"/"t N" solo valen si ese canal es SERIAL; si es ADC avisa y consume la línea igual.
 // Devuelve true si consumió la línea; false si no la reconoce (para que el llamador la
-// pase a la interfaz de usuario). Con EMG_SOURCE_ADC siempre devuelve false.
+// pase a la interfaz de usuario).
 bool app_feed_sim(const char *line);
 
 #endif // REDUX_APP_H

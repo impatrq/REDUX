@@ -46,5 +46,11 @@ cmake --build build-tests-wsl
 ctest --test-dir build-tests-wsl --output-on-failure
 "@
 
+# Normaliza a LF: si este archivo quedo con CRLF (p. ej. por core.autocrlf), el
+# here-string llevaria \r y bash en WSL fallaria ("set: -: invalid option",
+# "cd: ...\r: No such file or directory"). El .gitattributes ya fuerza LF; esto
+# es una defensa extra para cualquier copia de trabajo con CRLF.
+$bash = $bash -replace "`r", ''
+
 & wsl.exe -e bash -lc $bash
 exit $LASTEXITCODE

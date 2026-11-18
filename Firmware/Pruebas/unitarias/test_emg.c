@@ -1,8 +1,9 @@
 // test_emg.c · Pruebas del canal EMG con señales sintéticas: reposo con ruido no
 // activa, escalón sostenido activa recién tras EMG_ON_MIN_MS, un pico aislado corto no
 // activa, oscilación alrededor del umbral no genera parpadeo, intensidad en [0,1] y
-// creciente. Cubre también emg_calib: reposo calcula umbrales, ruido alto y MVC débil
-// dan error, saturación detectada y alpha correcto para 4 Hz / tick de 1 ms. Fase 4.
+// creciente. Cubre también emg_calib: reposo calcula umbrales, ruido alto y media alta
+// dan error (media baja NO), MVC débil da error, saturación detectada y alpha correcto
+// para 4 Hz / tick de 1 ms. Fase 4.
 
 #include "unity.h"
 
@@ -215,6 +216,34 @@ void test_rest_high_noise_fails(void) {
     TEST_ASSERT_FALSE(ch.calibrated); // no se instalaron umbrales
 }
 
+// Media de reposo muy alta (línea DC / reposo anómalo) con poco ruido: se rechaza.
+void test_rest_high_mean_fails(void) {
+    emg_channel_t ch;
+    emg_calib_t c;
+    emg_init(&ch);
+
+    // Envolvente constante por encima de EMG_REST_MEAN_MAX: media alta, desvío 0.
+    calibrate_rest_const(&c, &ch, EMG_REST_MEAN_MAX + 1000.0f);
+    TEST_ASSERT_TRUE(emg_calib_failed(&c));
+    TEST_ASSERT_EQUAL_INT(EMG_CAL_ERR_REST_MEAN, c.error);
+    TEST_ASSERT_FALSE(ch.calibrated); // no se instalaron umbrales
+}
+
+// Media de reposo muy baja (señal rectificada cerca de 0 V) con poco ruido: DEBE pasar.
+// No se rechaza por media baja; la entrada al aire se detecta por el ruido, no por la media.
+void test_rest_low_mean_ok(void) {
+    emg_channel_t ch;
+    emg_calib_t c;
+    emg_init(&ch);
+
+    calibrate_rest_const(&c, &ch, 5.0f); // ~4 mV: reposo real posible
+    TEST_ASSERT_TRUE(emg_calib_is_done(&c));
+    TEST_ASSERT_EQUAL_INT(EMG_CAL_ERR_NONE, c.error);
+    TEST_ASSERT_TRUE(ch.calibrated);
+    // Sin ruido: margen = EMG_MARGIN_MIN. thr_on = 5 + 30.
+    TEST_ASSERT_FLOAT_WITHIN(0.1f, 5.0f + EMG_MARGIN_MIN, ch.thr_on);
+}
+
 void test_mvc_weak_fails(void) {
     emg_channel_t ch;
     emg_calib_t c;
@@ -268,6 +297,8 @@ int main(void) {
     RUN_TEST(test_intensity_high_baseline);
     RUN_TEST(test_rest_calibration_thresholds);
     RUN_TEST(test_rest_high_noise_fails);
+    RUN_TEST(test_rest_high_mean_fails);
+    RUN_TEST(test_rest_low_mean_ok);
     RUN_TEST(test_mvc_weak_fails);
     RUN_TEST(test_mvc_strong_ok);
     RUN_TEST(test_saturation_detected);

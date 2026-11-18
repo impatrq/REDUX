@@ -54,6 +54,14 @@ static void emg_calib_finish_rest(emg_calib_t *c) {
         return;
     }
 
+    // Media anómalamente alta: entrada al aire con offset, línea DC o electrodo mal puesto.
+    // No se rechaza por media BAJA: con la señal rectificada un reposo real queda cerca de 0.
+    if (mean > (double)EMG_REST_MEAN_MAX) {
+        c->phase = EMG_CAL_FAILED;
+        c->error = EMG_CAL_ERR_REST_MEAN;
+        return;
+    }
+
     float margin = EMG_K_NOISE * std;
     if (margin < EMG_MARGIN_MIN) {
         margin = EMG_MARGIN_MIN;

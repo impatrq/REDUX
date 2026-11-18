@@ -29,6 +29,20 @@ set(PICO_BOARD pico2_w CACHE STRING "Board type")
 # -DREDUX_BUILD_BANCOS=OFF para construir solo el firmware principal, sin las pruebas.
 option(REDUX_BUILD_BANCOS "Compilar los programas de banco (Pruebas/banco)" ON)
 
+# Fuente de la señal EMG por canal, elegible al compilar sin editar config.h. Valores: ADC
+# o SERIAL (default SERIAL en ambos, como el banco). Para la prueba con el bíceps real sin
+# sensor de tríceps: -DREDUX_EMG_BIC=ADC -DREDUX_EMG_TRI=SERIAL. Se traducen a los macros
+# EMG_SOURCE_BIC / EMG_SOURCE_TRI (ver src/common/config.h).
+set(REDUX_EMG_BIC "SERIAL" CACHE STRING "Fuente EMG del biceps: ADC o SERIAL")
+set(REDUX_EMG_TRI "SERIAL" CACHE STRING "Fuente EMG del triceps: ADC o SERIAL")
+set_property(CACHE REDUX_EMG_BIC PROPERTY STRINGS ADC SERIAL)
+set_property(CACHE REDUX_EMG_TRI PROPERTY STRINGS ADC SERIAL)
+foreach(emg_opt REDUX_EMG_BIC REDUX_EMG_TRI)
+        if(NOT (${${emg_opt}} STREQUAL "ADC" OR ${${emg_opt}} STREQUAL "SERIAL"))
+                message(FATAL_ERROR "${emg_opt} debe ser ADC o SERIAL (es '${${emg_opt}}')")
+        endif()
+endforeach()
+
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
@@ -60,6 +74,7 @@ set(REDUX_SENSOR_SOURCES
         src/sensors/rom_calib.c
         src/sensors/emg.c
         src/sensors/emg_calib.c
+        src/sensors/emg_source.c
 )
 
 # Interfaz de usuario (app/). ui_basic implementa ui.h con pulsador, LED y USB.
@@ -144,6 +159,11 @@ redux_configure_target(redux-firmware)
 # Timeout bajo de la salida USB: una terminal abierta que no lee no bloquea el lazo
 # ni dispara el watchdog (el reporte se arma y envía por chunks, ver main.c).
 target_compile_definitions(redux-firmware PRIVATE PICO_STDIO_USB_STDOUT_TIMEOUT_US=1000)
+# Fuente de EMG por canal: traduce las opciones REDUX_EMG_BIC/TRI a los macros que lee
+# config.h. config.h usa #ifndef, así que sin estas opciones queda el default (SERIAL).
+target_compile_definitions(redux-firmware PRIVATE
+        EMG_SOURCE_BIC=EMG_SOURCE_${REDUX_EMG_BIC}
+        EMG_SOURCE_TRI=EMG_SOURCE_${REDUX_EMG_TRI})
 
 # Programas de banco (Pruebas/banco/*): ejecutables de prueba sobre la placa, aparte del
 # firmware. Se compilan solo si REDUX_BUILD_BANCOS está en ON (ver opción más arriba).

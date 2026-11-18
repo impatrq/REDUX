@@ -59,6 +59,28 @@ cmake -B build -G Ninja -DPICO_BOARD=pico2_w -DREDUX_BUILD_BANCOS=OFF
 cmake --build build
 ```
 
+### Fuente de EMG por canal (ADC o SERIAL)
+
+La señal de cada canal (bíceps y tríceps) puede ser **real por ADC** o **simulada por serie**,
+y se elige al compilar con `-DREDUX_EMG_BIC` y `-DREDUX_EMG_TRI` (valores `ADC` o `SERIAL`),
+sin editar `config.h`. El default es `SERIAL` en ambos (banco, sin electrodos).
+
+Para la prueba con el **bíceps real** (todavía sin sensor de tríceps) se usa la combinación
+mixta: bíceps por ADC, tríceps simulado por serie.
+
+```sh
+cmake -B build -G Ninja -DPICO_BOARD=pico2_w -DREDUX_EMG_BIC=ADC -DREDUX_EMG_TRI=SERIAL
+cmake --build build
+```
+
+Con esa build, el bíceps hace la calibración real de reposo y MVC con los mensajes de
+siempre; el tríceps se maneja con `t N`, su calibración se autocompleta y el reporte lo
+marca como simulado (`simT=1`). `r` pone en reposo solo los canales simulados. Un `b N`
+sobre un bíceps ADC se ignora con aviso.
+
+El `.uf2` sale del mismo paso de abajo (`tools\make_uf2_wsl.ps1` sobre
+`build\redux-firmware.elf`).
+
 ### Generar el `.uf2` (picotool bloqueado por Device Guard)
 
 En esta máquina, Device Guard / Smart App Control a veces bloquea `picotool.exe`, el paso
@@ -101,17 +123,18 @@ Por el monitor serie USB (una línea por comando):
 
 | Comando | Efecto |
 | --- | --- |
-| `b N` | Intensidad simulada de bíceps (flexión) al N % (0–100) |
-| `t N` | Intensidad simulada de tríceps (extensión) al N % |
-| `r` | Reposo: ambos canales a 0 |
+| `b N` | Intensidad simulada de bíceps (flexión) al N % (0–100); solo si el bíceps es SERIAL |
+| `t N` | Intensidad simulada de tríceps (extensión) al N %; solo si el tríceps es SERIAL |
+| `r` | Reposo: pone a 0 los canales simulados (no toca los canales ADC) |
 | `ok` | Confirmar (arranque / calibración) |
 | `cancel` | Cancelar el paso actual |
 | `recal` | Volver a calibrar desde el rango (ROM) |
 | `hang` | Solo en modo banco: cuelga el lazo para probar el watchdog |
 
-En el banco (sin electrodos) la fuente de EMG es **simulada por serie** (`b`/`t`/`r`); con
-el paciente conectado se pasa a ADC (ver `EMG_SOURCE` en `src/common/config.h`). El
-firmware emite un reporte de estado por USB periódicamente.
+La fuente de EMG se elige **por canal** al compilar (`-DREDUX_EMG_BIC` / `-DREDUX_EMG_TRI`,
+ver «Fuente de EMG por canal» arriba). Un `b N`/`t N` sobre un canal que es ADC se ignora
+con aviso. El firmware emite un reporte de estado por USB periódicamente, con `simB`/`simT`
+indicando qué canal es simulado.
 
 ## Estados (supervisor de seguridad)
 

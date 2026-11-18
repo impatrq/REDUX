@@ -30,3 +30,6 @@ Thumbs.db
 
 # Guía de trabajo con Claude Code: local, no va al repo del equipo
 CLAUDE.md
+
+# Configuración local de Claude Code: local, no va al repo del equipo
+.claude/
