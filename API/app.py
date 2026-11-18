@@ -32,6 +32,11 @@ def create_app(config_object=Config):
     login_manager.init_app(app)
     login_manager.login_view = "paginas.ingreso"
 
+    # Blueprints
+    from api_pico import bp as bp_pico
+
+    app.register_blueprint(bp_pico)
+
     with app.app_context():
         db.create_all()
 
