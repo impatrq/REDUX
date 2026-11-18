@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block titulo %}Avance | {{ paciente.nombre }}{% endblock %}
+
+{% block contenido %}
+<div class="row mb-3 align-items-center">
+    <div class="col">
+        {% if current_user.es_medico %}
+        <a href="{{ url_for('paginas.pacientes') }}" class="btn btn-sm btn-ver mb-2">← Volver al panel</a>
+        {% endif %}
+        <h1 class="titulo-redux" style="font-size: 2.2rem;">
+            Paciente #{{ paciente.id }} — {{ paciente.nombre }}
+        </h1>
+    </div>
+    <div class="col-auto">
+        <label class="form-label subtitulo mb-1">Brazo</label>
+        <select class="form-select" id="filtroBrazo" onchange="cargar()">
+            <option value="">Todos</option>
+            <option value="izquierdo">Izquierdo</option>
+            <option value="derecho">Derecho</option>
+        </select>
+    </div>
+</div>
+
+<div class="card p-3 mb-4">
+    <h5 class="mb-3">Evolución por sesión</h5>
+    <canvas id="grafico" height="110"></canvas>
+    <p class="subtitulo mt-2 mb-0 small" id="sinDatos"></p>
+</div>
+
+<div class="card">
+    <div class="card-header"><h5 class="mb-0">Sesiones</h5></div>
+    <div class="card-body">
+        <table class="table table-hover table-borderless align-middle">
+            <thead class="borde-redux">
+                <tr>
+                    <th>Fecha</th><th>ID paciente</th><th>Nombre</th>
+                    <th>Rango de movimiento</th><th>Asistencia</th><th>Brazo</th>
+                </tr>
+            </thead>
+            <tbody id="tablaSesiones">
+                <tr><td colspan="6" class="subtitulo">Cargando…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const PACIENTE_ID = {{ paciente.id }};
+let grafico = null;
+
+async function cargar() {
+    const brazo = document.getElementById("filtroBrazo").value;
+    const url = "/api/web/paciente/" + PACIENTE_ID + (brazo ? "?brazo=" + brazo : "");
+    const tbody = document.getElementById("tablaSesiones");
+    try {
+        const datos = await obtenerJSON(url);
+        if (!datos) return;
+        dibujar(datos);
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-danger">${e.message}</td></tr>`;
+    }
+}
+
+function dibujar(datos) {
+    const tbody = document.getElementById("tablaSesiones");
+    const sesiones = datos.sesiones || [];
+    const sinDatos = document.getElementById("sinDatos");
+
+    if (sesiones.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="subtitulo">Sin sesiones para este filtro.</td></tr>';
+        sinDatos.textContent = "No hay sesiones para graficar.";
+    } else {
+        sinDatos.textContent = "";
+    }
+
+    tbody.innerHTML = sesiones.length === 0 ? tbody.innerHTML : sesiones.map(s => `
+        <tr style="cursor:pointer" onclick="location.href='/sesion/${s.id_sesion}'">
+            <td>${formatearFecha(s.fecha)}</td>
+            <td>${datos.id}</td>
+            <td>${escapar(datos.nombre)}</td>
+            <td class="text-info">${s.rango_medio_grados ?? "-"}°</td>
+            <td style="color:${COLOR_ASIST}">${s.asistencia_media_pct ?? "-"}%</td>
+            <td>${s.brazo}</td>
+        </tr>`).join("");
+
+    const etiquetas = sesiones.map(s => formatearFecha(s.fecha));
+    const rango = sesiones.map(s => s.rango_medio_grados);
+    const asist = sesiones.map(s => s.asistencia_media_pct);
+
+    if (grafico) grafico.destroy();
+    grafico = new Chart(document.getElementById("grafico").getContext("2d"), {
+        type: "line",
+        data: {
+            labels: etiquetas,
+            datasets: [
+                { label: "Rango medio (°)", data: rango, borderColor: COLOR_RANGO, backgroundColor: "rgba(13,202,240,0.1)", yAxisID: "y", tension: 0.3, fill: true },
+                { label: "Asistencia media (%)", data: asist, borderColor: COLOR_ASIST, backgroundColor: "rgba(214,180,255,0.1)", yAxisID: "y1", tension: 0.3, fill: true },
+            ],
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { position: "left", title: { display: true, text: "Grados (°)", color: "#fff" }, ticks: { color: "#fff" } },
+                y1: { position: "right", title: { display: true, text: "Asistencia (%)", color: "#fff" }, grid: { drawOnChartArea: false }, ticks: { color: "#fff" } },
+                x: { ticks: { color: "#fff" } },
+            },
+            plugins: { legend: { labels: { color: "#fff" } } },
+        },
+    });
+}
+
+function escapar(t) { const d = document.createElement("div"); d.textContent = t ?? ""; return d.innerHTML; }
+
+cargar();
+</script>
+{% endblock %}

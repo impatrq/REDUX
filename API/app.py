@@ -32,10 +32,20 @@ def create_app(config_object=Config):
     login_manager.init_app(app)
     login_manager.login_view = "paginas.ingreso"
 
+    from models import Usuario
+
+    @login_manager.user_loader
+    def cargar_usuario(user_id):
+        return db.session.get(Usuario, int(user_id))
+
     # Blueprints
     from api_pico import bp as bp_pico
+    from api_web import bp as bp_web
+    from paginas import bp as bp_paginas
 
     app.register_blueprint(bp_pico)
+    app.register_blueprint(bp_web)
+    app.register_blueprint(bp_paginas)
 
     with app.app_context():
         db.create_all()
