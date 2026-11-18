@@ -61,6 +61,7 @@ set(REDUX_HAL_SOURCES
         src/hal/hal_gpio.c
         src/hal/hal_button.c
         src/hal/hal_wdt.c
+        src/hal/hal_rand.c
 )
 
 # Drivers de actuadores (actuators/). C portable: usan solo el HAL, nunca el SDK.
@@ -87,12 +88,14 @@ set(REDUX_CONTROL_SOURCES
         src/control/intent.c
         src/control/limits.c
         src/control/power.c
+        src/control/rep_stats.c
 )
 
 # Capa de aplicación (app/). Supervisor (lógica pura) e integración del ciclo.
 set(REDUX_APP_SOURCES
         src/app/supervisor.c
         src/app/angle_watch.c
+        src/app/session.c
         src/app/app.c
 )
 
@@ -132,6 +135,7 @@ set(REDUX_SDK_LIBS
         hardware_gpio
         hardware_timer
         hardware_watchdog
+        pico_rand
 )
 
 # Configura un ejecutable del proyecto con includes, librerías del SDK y salida USB.

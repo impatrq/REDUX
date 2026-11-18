@@ -4,9 +4,13 @@
 
 #include "app.h"
 
+#include <stdio.h>
+#include <string.h>
+
 #include "config.h"
 
 #include "angle_watch.h"
+#include "session.h"
 #include "supervisor.h"
 
 #include "intent.h"
@@ -20,6 +24,7 @@
 
 #include "board.h"
 #include "hal_adc.h"
+#include "hal_rand.h"
 #include "hal_time.h"
 #include "hal_wdt.h"
 
@@ -50,6 +55,15 @@ static fault_t g_magnet_fault = FAULT_NONE; // última lectura del estado del im
 static rom_phase_t g_rom_last_phase = ROM_IDLE;
 
 static app_status_t g_status;
+
+// --- Sesión ------------------------------------------------------------------
+static session_t g_session;
+static ui_event_t g_pending_ev = UI_EV_NONE; // evento inyectado por comando ("sesion"/"fin")
+static int32_t g_pending_patient = 0;         // paciente del próximo inicio de sesión
+static char g_pending_arm = 'i';              // brazo del próximo inicio de sesión
+static bool g_enc_ok = false;                 // encoder OK en el último tick (para "sesion")
+static uint32_t g_run_accum_ms = 0u;          // ms acumulados en marcha (ST_RUN) de la sesión
+static uint32_t g_run_enter_ms = 0u;          // instante de la última entrada a ST_RUN
 
 // --- Entradas de EMG de un tick ----------------------------------------------
 typedef struct {
@@ -93,6 +107,28 @@ static emg_calib_t g_cal_t;
 // Sub-secuencia de la toma de contracción máxima: solo los canales ADC piden MVC.
 typedef enum { MVC_B_WAIT, MVC_B_RUN, MVC_T_WAIT, MVC_T_RUN, MVC_DONE } mvc_step_t;
 static mvc_step_t g_mvc = MVC_DONE;
+
+// El reposo ahora espera la confirmación del usuario antes de medir sus 2 s (antes
+// arrancaba solo). true mientras se espera esa confirmación.
+static bool g_rest_waiting = false;
+
+// Imprime los valores de la toma de reposo de un canal: media, desvío y umbral.
+static void print_rest_values(const char *name, const emg_calib_t *c) {
+    char buf[STATUS_LINE_MAX];
+    (void)snprintf(buf, sizeof(buf), "Reposo %s: media=%.0f desvio=%.0f umbral=%.0f", name,
+                   (double)c->rest_mean, (double)c->rest_std, (double)c->thr_on);
+    ui_message(buf);
+}
+
+// Imprime los valores de la contracción máxima de un canal: pico, pico sobre el reposo y
+// mínimo necesario (el umbral de activación escalado por EMG_MVC_MIN_RATIO).
+static void print_mvc_values(const char *name, const emg_calib_t *c) {
+    char buf[STATUS_LINE_MAX];
+    (void)snprintf(buf, sizeof(buf),
+                   "MVC %s: pico=%.0f sobre_reposo=%.0f minimo=%.0f", name, (double)c->peak,
+                   (double)(c->peak - c->rest_mean), (double)(c->thr_on * EMG_MVC_MIN_RATIO));
+    ui_message(buf);
+}
 
 static uint16_t read_oversampled(uint8_t adc_channel) {
     uint32_t acc = 0u;
@@ -160,14 +196,11 @@ static void announce_rest_fail(void) {
 // Arranca la toma de reposo al entrar a ST_CALIB_REST. Solo los canales ADC toman reposo
 // real; los simulados tienen la calibración autocompletada.
 static void emg_calib_enter_rest(void) {
-#if EMG_BIC_ADC
-    emg_calib_rest_begin(&g_cal_b, &g_ch_b);
-#endif
-#if EMG_TRI_ADC
-    emg_calib_rest_begin(&g_cal_t, &g_ch_t);
-#endif
 #if EMG_ANY_ADC
-    ui_message("Calib EMG reposo: relaje el musculo real y sostenga.");
+    // El reposo espera la confirmación antes de medir (2 s). No arranca solo.
+    g_rest_waiting = true;
+    ui_set_waiting(true);
+    ui_message("Calib EMG reposo: relaje el musculo y confirme (pulsador u 'ok'). Mide 2 s.");
 #else
     ui_message("Calib EMG: fuente simulada, calibracion autocompletada.");
 #endif
@@ -187,10 +220,24 @@ static void emg_calib_enter_mvc(void) {
 #endif
 }
 
-// Alimenta la toma de reposo; devuelve done/failed. Con ambos canales simulados no hay
-// nada que medir y termina de inmediato.
-static void emg_rest_feed(const emg_in_t *e, bool *done, bool *failed) {
+// Alimenta la toma de reposo; devuelve done/failed. Espera la confirmación del usuario
+// antes de medir. Con ambos canales simulados no hay nada que medir y termina de inmediato.
+static void emg_rest_feed(const emg_in_t *e, ui_event_t ev, bool *done, bool *failed) {
 #if EMG_ANY_ADC
+    if (g_rest_waiting) {
+        if (ev == UI_EV_CONFIRM) {
+            g_rest_waiting = false;
+            ui_set_waiting(false);
+#if EMG_BIC_ADC
+            emg_calib_rest_begin(&g_cal_b, &g_ch_b);
+#endif
+#if EMG_TRI_ADC
+            emg_calib_rest_begin(&g_cal_t, &g_ch_t);
+#endif
+            ui_message("Midiendo reposo, sostenga la posicion...");
+        }
+        return; // esperando la confirmación (o recién arrancó la toma)
+    }
     bool running = false;
 #if EMG_BIC_ADC
     emg_calib_add(&g_cal_b, e->env_b);
@@ -215,10 +262,17 @@ static void emg_rest_feed(const emg_in_t *e, bool *done, bool *failed) {
     if (any_failed) {
         announce_rest_fail();
     } else {
-        ui_message("Reposo OK.");
+        // Medición válida: publicá media, desvío y umbral de cada canal real.
+#if EMG_BIC_ADC
+        print_rest_values("biceps", &g_cal_b);
+#endif
+#if EMG_TRI_ADC
+        print_rest_values("triceps", &g_cal_t);
+#endif
     }
 #else
     (void)e;
+    (void)ev;
     (void)failed;
     *done = true; // ambos canales simulados: calibración autocompletada
 #endif
@@ -246,6 +300,7 @@ static void emg_mvc_feed(const emg_in_t *e, ui_event_t ev, bool *done) {
                 ui_message("MVC biceps debil. Reintente y confirme.");
                 g_mvc = MVC_B_WAIT;
             } else {
+                print_mvc_values("biceps", &g_cal_b);
 #if EMG_TRI_ADC
                 ui_set_waiting(true);
                 ui_message("Biceps OK. Contraiga TRICEPS al maximo y confirme.");
@@ -274,6 +329,7 @@ static void emg_mvc_feed(const emg_in_t *e, ui_event_t ev, bool *done) {
                 ui_message("MVC triceps debil. Reintente y confirme.");
                 g_mvc = MVC_T_WAIT;
             } else {
+                print_mvc_values("triceps", &g_cal_t);
                 ui_message("Triceps OK. Calibracion EMG completa.");
                 g_mvc = MVC_DONE;
             }
@@ -391,7 +447,7 @@ static void run_calibration(sys_state_t state, const emg_in_t *e, ui_event_t ev,
         *failed = (g_rom.phase == ROM_FAILED);
         break;
     case ST_CALIB_REST:
-        emg_rest_feed(e, done, failed);
+        emg_rest_feed(e, ev, done, failed);
         break;
     case ST_CALIB_MVC:
         emg_mvc_feed(e, ev, done);
@@ -409,6 +465,11 @@ static void on_enter(sys_state_t to) {
     case ST_CHECK_ENC:
         ui_set_waiting(false);
         ui_message("Encoder: verificando iman y bus...");
+        break;
+    case ST_IDLE:
+        ui_set_waiting(false);
+        bts7960_stop();
+        ui_message("Listo. Inicie una sesion con 'sesion <id_paciente> <i|d>'.");
         break;
     case ST_CALIB_ROM:
         rom_calib_begin(&g_rom);
@@ -443,6 +504,50 @@ static void on_enter(sys_state_t to) {
         break;
     default:
         break;
+    }
+}
+
+// =============================================================================
+//  Ciclo de vida de la sesión, enganchado a las transiciones del supervisor.
+// =============================================================================
+// Reacciona a un cambio de estado del supervisor para manejar la sesión: contar el tiempo
+// en marcha, iniciarla al calibrar, y publicarla o descartarla al volver a ST_IDLE.
+static void session_on_transition(sys_state_t prev, sys_state_t now, uint32_t now_ms) {
+    // Contabilidad del tiempo en marcha (solo ST_RUN cuenta para duracion_s).
+    if (prev == ST_RUN) {
+        g_run_accum_ms += now_ms - g_run_enter_ms;
+    }
+    if (now == ST_RUN) {
+        g_run_enter_ms = now_ms;
+        session_run_enter(&g_session); // reinicia el detector de reps (recal a mitad de sesión)
+    }
+
+    // Inicio de sesión: IDLE -> CALIB_ROM por el comando "sesion".
+    if (prev == ST_IDLE && now == ST_CALIB_ROM) {
+        char id[SESSION_ID_MAX];
+        session_make_id(id, hal_rand_u64());
+        session_begin(&g_session, id, g_pending_patient, g_pending_arm);
+        g_run_accum_ms = 0u;
+    }
+
+    if (now == ST_IDLE) {
+        if (prev == ST_RUN) {
+            // Fin de sesión ("fin"/"cancel" en marcha): cierra la rep en curso y publica.
+            session_end(&g_session, now_ms, g_run_accum_ms, g_rom.rom_deg);
+            const char *motivo = NULL;
+            if (session_should_send(session_result(&g_session), &motivo)) {
+                session_tx_begin(&g_session);
+                ui_message("Sesion finalizada. Enviando resultado por USB...");
+            } else {
+                char buf[STATUS_LINE_MAX];
+                (void)snprintf(buf, sizeof(buf), "Sesion no guardada: %s", motivo);
+                ui_message(buf);
+            }
+        } else if (prev == ST_CALIB_ROM || prev == ST_CALIB_REST || prev == ST_CALIB_MVC) {
+            // Cancelación durante la calibración: se abandona la sesión sin publicar.
+            session_cancel(&g_session);
+            ui_message("Sesion cancelada (sin guardar).");
+        }
     }
 }
 
@@ -485,6 +590,13 @@ void app_init(void) {
     rom_calib_begin(&g_rom); // deja g_rom en estado conocido (no calibrado)
     g_rom.phase = ROM_IDLE;
     emg_channels_init();
+    session_init(&g_session);
+    g_pending_ev = UI_EV_NONE;
+    g_pending_patient = 0;
+    g_pending_arm = 'i';
+    g_enc_ok = false;
+    g_run_accum_ms = 0u;
+    g_run_enter_ms = 0u;
     g_wdt_on = false;
     g_tick = 0u;
     g_last_overrun = false;
@@ -501,6 +613,10 @@ void app_init(void) {
     // informa como simulado (simB/simT). Lo fija la fuente por canal, ya inicializada.
     g_status.sim_bic = emg_source_bic_is_sim(&g_src);
     g_status.sim_tri = emg_source_tri_is_sim(&g_src);
+    g_status.session_active = false;
+    g_status.session_patient = 0;
+    g_status.session_arm = 'i';
+    g_status.session_reps = 0u;
 
     ui_message("REDUX listo. Confirme (pulsador u 'ok') para iniciar.");
     supervisor_out_t out = {ST_BOOT, false, FAULT_NONE};
@@ -509,6 +625,7 @@ void app_init(void) {
 
 void app_tick(bool loop_behind) {
     const uint64_t t0 = hal_time_us();
+    const uint32_t now_ms = hal_time_ticks(); // reloj de ms para la sesión y las reps
 
     // 1) Watchdog: alimentar una vez por ciclo mientras esté habilitado.
     if (g_wdt_on) {
@@ -516,8 +633,14 @@ void app_tick(bool loop_behind) {
     }
 
     // Interfaz: trabajo periódico y un evento por tick (lo ven supervisor y calibración).
+    // Si hay un evento inyectado por comando ("sesion"/"fin") y la interfaz no tiene uno
+    // propio este tick, se usa el inyectado.
     ui_tick();
-    const ui_event_t ev = ui_poll();
+    ui_event_t ev = ui_poll();
+    if (ev == UI_EV_NONE && g_pending_ev != UI_EV_NONE) {
+        ev = g_pending_ev;
+        g_pending_ev = UI_EV_NONE;
+    }
 
     // 2) EMG (sobremuestreo real o fuente simulada).
     emg_in_t e;
@@ -526,6 +649,7 @@ void app_tick(bool loop_behind) {
     // 3) Encoder: ángulo y fallas según el estado actual.
     const sys_state_t state_now = g_sv.state;
     const fault_t enc_fault = read_encoder(state_now);
+    g_enc_ok = (enc_fault == FAULT_NONE); // para aceptar/rechazar el inicio de sesión
 
     // Calibración del estado actual (su done/failed alimenta al supervisor este tick).
     bool calib_done = false;
@@ -545,6 +669,7 @@ void app_tick(bool loop_behind) {
     const sys_state_t prev = g_sv.state;
     supervisor_step(&g_sv, &in, &g_out);
     if (g_out.state != prev) {
+        session_on_transition(prev, g_out.state, now_ms);
         on_enter(g_out.state);
     }
 
@@ -565,6 +690,19 @@ void app_tick(bool loop_behind) {
     // Sentido y duty REALMENTE escritos al PWM este tick (no el objetivo de la rampa):
     // así el reporte coincide con lo que mide un osciloscopio en GP8/GP9.
     bts7960_applied(&g_status.dir, &g_status.duty);
+
+    // Estadística por repetición: solo en marcha, con el ángulo y el duty realmente
+    // aplicados. session_sample ignora la muestra si no hay sesión activa.
+    if (g_out.state == ST_RUN) {
+        const bool motor_active = (g_status.dir != DIR_STOP) && (g_status.duty > 0.0f);
+        session_sample(&g_session, g_status.angle_deg, g_status.duty, motor_active, now_ms);
+    }
+
+    // Campos de la sesión para el reporte de estado.
+    g_status.session_active = session_is_active(&g_session);
+    g_status.session_patient = session_patient(&g_session);
+    g_status.session_arm = session_arm(&g_session);
+    g_status.session_reps = session_reps(&g_session);
 
     g_tick++;
 
@@ -591,4 +729,47 @@ bool app_feed_sim(const char *line) {
     default:
         return false; // no es "b"/"t"/"r": que lo procese la interfaz de usuario
     }
+}
+
+bool app_feed_session(const char *line) {
+    if (strncmp(line, "sesion ", 7u) == 0) {
+        int pac = 0;
+        char arm = 0;
+        if (sscanf(line + 7, "%d %c", &pac, &arm) != 2 || (arm != 'i' && arm != 'd')) {
+            ui_message("Uso: sesion <id_paciente> <i|d>  (i = izquierdo, d = derecho).");
+            return true;
+        }
+        if (g_sv.state != ST_IDLE) {
+            ui_message("La sesion se inicia desde el estado IDLE (listo).");
+            return true;
+        }
+        if (session_tx_busy(&g_session)) {
+            ui_message("Enviando el resultado de la sesion anterior, espere.");
+            return true;
+        }
+        if (!g_enc_ok) {
+            ui_message("Encoder no esta OK: no se puede iniciar la sesion.");
+            return true;
+        }
+        g_pending_patient = pac;
+        g_pending_arm = arm;
+        g_pending_ev = UI_EV_START_SESSION;
+        if (pac == 0) {
+            ui_message("Paciente 0: la sesion funciona pero NO se va a guardar.");
+        }
+        ui_message("Iniciando sesion: calibracion.");
+        return true;
+    }
+    if (strcmp(line, "fin") == 0) {
+        // "fin" equivale a "cancel" en marcha: termina la sesión, publica y vuelve a IDLE.
+        g_pending_ev = UI_EV_CANCEL;
+        return true;
+    }
+    return false;
+}
+
+bool app_session_tx_busy(void) { return session_tx_busy(&g_session); }
+
+size_t app_session_tx_next(char *buf, size_t cap, bool *done) {
+    return session_tx_next(&g_session, buf, cap, done);
 }

@@ -7,6 +7,7 @@
 #define REDUX_APP_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include "redux_types.h"
@@ -26,6 +27,10 @@ typedef struct {
     float duty;           // duty aplicado [0, DUTY_CEIL]
     bool sim_bic;         // bíceps simulado (fuente serie): calibración autocompletada
     bool sim_tri;         // tríceps simulado (fuente serie): calibración autocompletada
+    bool session_active;  // hay una sesión en curso
+    int32_t session_patient; // id del paciente de la sesión (0 = sin paciente)
+    char session_arm;     // brazo de la sesión: 'i' o 'd'
+    uint16_t session_reps; // repeticiones contadas hasta ahora
 } app_status_t;
 
 // Inicializa el supervisor, los módulos y el estado del ciclo. Llamar una vez tras
@@ -46,5 +51,22 @@ void app_get_status(app_status_t *out);
 // Devuelve true si consumió la línea; false si no la reconoce (para que el llamador la
 // pase a la interfaz de usuario).
 bool app_feed_sim(const char *line);
+
+// Procesa un comando de sesión por la terminal:
+//   "sesion <id_paciente> <i|d>" -> inicia una sesión desde ST_IDLE (i = izquierdo,
+//        d = derecho; id_paciente 0 = sin paciente, la sesión no se guarda);
+//   "fin" -> termina la sesión en marcha (equivale a "cancel" en RUN).
+// Valida el estado y el encoder y avisa por la interfaz. Devuelve true si consumió la
+// línea; false si no es un comando de sesión (para que el llamador la pase a la interfaz).
+bool app_feed_session(const char *line);
+
+// --- Envío del resultado de la sesión (@SESION), no bloqueante ---------------
+// true mientras haya un resultado de sesión pendiente de enviar por USB.
+bool app_session_tx_busy(void);
+
+// Copia hasta `cap` bytes del JSON @SESION pendiente en `buf`; devuelve cuántos copió y
+// deja *done en true al terminar la línea. Pensada para drenar de a poco en el lazo
+// principal, fuera de la medición del ciclo de control.
+size_t app_session_tx_next(char *buf, size_t cap, bool *done);
 
 #endif // REDUX_APP_H
