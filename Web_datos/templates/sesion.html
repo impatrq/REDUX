@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block titulo %}Sesión | {{ paciente.nombre }}{% endblock %}
+
+{% block contenido %}
+<a href="{{ url_for('paginas.avance', id=paciente.id) }}" class="btn btn-sm btn-ver mb-3">← Volver al avance</a>
+<h1 class="titulo-redux" style="font-size: 2rem;">Detalle de sesión</h1>
+<p class="subtitulo">Paciente #{{ paciente.id }} — {{ paciente.nombre }}</p>
+
+<div class="row g-3 mb-4" id="resumen">
+    <div class="col-12 subtitulo">Cargando…</div>
+</div>
+
+<div class="card p-3 mb-4">
+    <h5 class="mb-3">Repeticiones</h5>
+    <canvas id="grafico" height="110"></canvas>
+</div>
+
+<div class="card">
+    <div class="card-header"><h5 class="mb-0">Detalle de repeticiones</h5></div>
+    <div class="card-body">
+        <table class="table table-borderless table-sm align-middle">
+            <thead class="borde-redux">
+                <tr><th>#</th><th>Rango (°)</th><th>Asistencia (%)</th><th>Duración (ms)</th></tr>
+            </thead>
+            <tbody id="tablaReps"></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SESION_ID = {{ sesion_id }};
+
+async function cargar() {
+    try {
+        const s = await obtenerJSON("/api/web/sesion/" + SESION_ID);
+        if (!s) return;
+        pintarResumen(s);
+        pintarTabla(s.detalle || []);
+        pintarGrafico(s.detalle || []);
+    } catch (e) {
+        document.getElementById("resumen").innerHTML = `<div class="col-12 text-danger">${e.message}</div>`;
+    }
+}
+
+function tarjeta(titulo, valor) {
+    return `<div class="col-6 col-md-3"><div class="card p-3 h-100">
+        <div class="subtitulo small">${titulo}</div>
+        <div style="font-size:1.4rem;font-weight:600">${valor}</div></div></div>`;
+}
+
+function pintarResumen(s) {
+    document.getElementById("resumen").innerHTML =
+        tarjeta("Fecha", formatearFecha(s.fecha)) +
+        tarjeta("Brazo", s.brazo) +
+        tarjeta("Rango calibrado", (s.rom_calibrado_grados ?? "-") + "°") +
+        tarjeta("Duración", (s.duracion_s ?? "-") + " s");
+}
+
+function pintarTabla(reps) {
+    document.getElementById("tablaReps").innerHTML = reps.map(r => `
+        <tr>
+            <td>${r.numero}</td>
+            <td class="text-info">${r.rango_grados}°</td>
+            <td style="color:${COLOR_ASIST}">${r.asistencia_pct}%</td>
+            <td>${r.duracion_ms ?? "-"}</td>
+        </tr>`).join("");
+}
+
+function pintarGrafico(reps) {
+    new Chart(document.getElementById("grafico").getContext("2d"), {
+        type: "line",
+        data: {
+            labels: reps.map(r => "#" + r.numero),
+            datasets: [
+                { label: "Rango (°)", data: reps.map(r => r.rango_grados), borderColor: COLOR_RANGO, backgroundColor: "rgba(13,202,240,0.1)", yAxisID: "y", tension: 0.3, fill: true },
+                { label: "Asistencia (%)", data: reps.map(r => r.asistencia_pct), borderColor: COLOR_ASIST, backgroundColor: "rgba(214,180,255,0.1)", yAxisID: "y1", tension: 0.3, fill: true },
+            ],
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { position: "left", title: { display: true, text: "Grados (°)", color: "#fff" }, ticks: { color: "#fff" } },
+                y1: { position: "right", title: { display: true, text: "Asistencia (%)", color: "#fff" }, grid: { drawOnChartArea: false }, ticks: { color: "#fff" } },
+                x: { ticks: { color: "#fff" } },
+            },
+            plugins: { legend: { labels: { color: "#fff" } } },
+        },
+    });
+}
+
+cargar();
+</script>
+{% endblock %}

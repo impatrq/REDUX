@@ -1,0 +1,16 @@
+# Base de datos local (se crea sola, no se versiona)
+instance/
+*.db
+
+# Variables de entorno con claves
+.env
+
+# Cache de Python
+__pycache__/
+*.py[cod]
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+.API/

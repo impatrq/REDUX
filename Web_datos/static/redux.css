@@ -1,0 +1,114 @@
+/* Paleta violeta de REDUX (tomada del panel original). */
+:root {
+  --redux-fondo: #1f074c;
+  --redux-panel: #2a115c;
+  --redux-borde: #7f4ca5;
+  --redux-texto: #ffffff;
+  --redux-suave: #d1c4e9;
+}
+
+body {
+  background-color: var(--redux-fondo);
+  color: var(--redux-texto);
+  min-height: 100vh;
+}
+
+.titulo-redux {
+  color: var(--redux-texto);
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.subtitulo {
+  color: var(--redux-suave);
+}
+
+a {
+  color: var(--redux-suave);
+}
+
+.card {
+  background-color: transparent;
+  border: 2px solid var(--redux-borde);
+  box-shadow: none;
+  color: var(--redux-texto);
+}
+
+.card-header {
+  background-color: transparent;
+  border-bottom: 2px solid var(--redux-borde);
+  color: var(--redux-texto);
+}
+
+.table {
+  color: var(--redux-texto);
+}
+
+.table-hover tbody tr:hover {
+  color: var(--redux-texto);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+thead.borde-redux {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Botones */
+.btn-nuevo {
+  background-color: var(--redux-borde);
+  color: var(--redux-fondo);
+  font-weight: 600;
+  border: 2px solid var(--redux-texto);
+}
+.btn-nuevo:hover {
+  background-color: var(--redux-texto);
+  color: var(--redux-fondo);
+}
+
+.btn-redux {
+  color: var(--redux-borde);
+  border: 1px solid var(--redux-borde);
+  background-color: transparent;
+}
+.btn-redux:hover {
+  background-color: var(--redux-borde);
+  color: var(--redux-fondo);
+}
+
+.btn-ver {
+  color: var(--redux-texto);
+  border-color: var(--redux-texto);
+}
+.btn-ver:hover {
+  background-color: var(--redux-texto);
+  color: var(--redux-fondo);
+}
+
+/* Formularios y modales */
+.modal-content {
+  background-color: var(--redux-panel);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.form-control,
+.form-select {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.form-control:focus,
+.form-select:focus {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-color: var(--redux-borde);
+  box-shadow: none;
+}
+.form-control::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Tarjeta de ingreso centrada */
+.caja-ingreso {
+  max-width: 380px;
+  margin: 8vh auto 0;
+}

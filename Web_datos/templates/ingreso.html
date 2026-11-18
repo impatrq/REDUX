@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titulo %}Ingreso | REDUX{% endblock %}
+
+{% block contenido %}
+<div class="caja-ingreso text-center">
+    <h1 class="titulo-redux" style="font-size: 3.5rem;">REDUX</h1>
+    <p class="subtitulo mb-4">Panel de datos de pacientes</p>
+
+    <div class="card p-4">
+        {% if error %}
+        <div class="alert alert-danger py-2">{{ error }}</div>
+        {% endif %}
+        <form method="POST" action="{{ url_for('paginas.procesar_ingreso') }}">
+            <div class="mb-3 text-start">
+                <label class="form-label">Usuario</label>
+                <input type="text" class="form-control" name="nombre_usuario" autofocus required>
+            </div>
+            <div class="mb-3 text-start">
+                <label class="form-label">Contraseña</label>
+                <input type="password" class="form-control" name="contrasena" required>
+            </div>
+            <button type="submit" class="btn btn-nuevo w-100">Ingresar</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

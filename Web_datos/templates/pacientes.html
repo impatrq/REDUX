@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block titulo %}Pacientes | REDUX{% endblock %}
+
+{% block contenido %}
+<div class="row mb-4 align-items-center">
+    <div class="col">
+        <h1 class="titulo-redux" style="font-size: 2.5rem;">Pacientes</h1>
+        <p class="subtitulo mb-0">Monitoreo de pacientes y sus avances</p>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-nuevo" data-bs-toggle="modal" data-bs-target="#modalPaciente" onclick="prepararNuevo()">+ Nuevo Paciente</button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header"><h5 class="mb-0">Pacientes registrados</h5></div>
+    <div class="card-body">
+        <table class="table table-hover table-borderless align-middle">
+            <thead class="borde-redux">
+                <tr>
+                    <th>ID</th><th>Nombre</th><th>Edad</th><th>Última sesión</th><th class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tablaPacientes">
+                <tr><td colspan="5" class="subtitulo">Cargando…</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Nuevo / Editar paciente -->
+<div class="modal fade" id="modalPaciente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title" id="tituloModal">Nuevo Paciente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger py-2 d-none" id="errorPaciente"></div>
+                <div class="mb-3">
+                    <label class="form-label">ID (número del panel del exoesqueleto)</label>
+                    <input type="number" class="form-control" id="pacId" min="1">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Nombre</label>
+                    <input type="text" class="form-control" id="pacNombre" maxlength="100">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Edad</label>
+                    <input type="number" class="form-control" id="pacEdad" min="0">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Observaciones</label>
+                    <textarea class="form-control" id="pacObs" maxlength="250"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-nuevo" onclick="guardarPaciente()">Guardar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear cuenta -->
+<div class="modal fade" id="modalCuenta" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title">Crear cuenta del paciente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger py-2 d-none" id="errorCuenta"></div>
+                <p class="subtitulo" id="cuentaPara"></p>
+                <div class="mb-3">
+                    <label class="form-label">Nombre de usuario</label>
+                    <input type="text" class="form-control" id="cuentaUsuario" maxlength="50">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Contraseña</label>
+                    <input type="password" class="form-control" id="cuentaPass">
+                </div>
+            </div>
+            <div class="modal-footer border-top-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-nuevo" onclick="guardarCuenta()">Crear cuenta</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let modoEdicion = false;
+// Pacientes cargados, por id (evita meter datos en atributos HTML).
+const pacientesPorId = {};
+const modalPaciente = () => bootstrap.Modal.getOrCreateInstance(document.getElementById("modalPaciente"));
+const modalCuenta = () => bootstrap.Modal.getOrCreateInstance(document.getElementById("modalCuenta"));
+
+async function cargar() {
+    const tbody = document.getElementById("tablaPacientes");
+    try {
+        const pacientes = await obtenerJSON("/api/web/pacientes");
+        if (!pacientes) return;
+        Object.keys(pacientesPorId).forEach(k => delete pacientesPorId[k]);
+        pacientes.forEach(p => { pacientesPorId[p.id] = p; });
+        if (pacientes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="subtitulo">Todavía no hay pacientes.</td></tr>';
+            return;
+        }
+        // Los botones llevan solo data-id; el manejo va por delegación (ver abajo).
+        tbody.innerHTML = pacientes.map(p => `
+            <tr>
+                <td>${p.id}</td>
+                <td>${escapar(p.nombre)}</td>
+                <td>${p.edad ?? "-"}</td>
+                <td>${formatearFecha(p.ultima_sesion)}</td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-redux me-1 js-editar" data-id="${p.id}">Editar</button>
+                    <a class="btn btn-sm btn-ver me-1" href="/paciente/${p.id}/avance">Ver avance</a>
+                    <button class="btn btn-sm btn-redux js-cuenta" data-id="${p.id}" ${p.tiene_cuenta ? "disabled title='Ya tiene cuenta'" : ""}>Crear cuenta</button>
+                </td>
+            </tr>`).join("");
+    } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-danger">${e.message}</td></tr>`;
+    }
+}
+
+function escapar(t) {
+    const d = document.createElement("div");
+    d.textContent = t ?? "";
+    return d.innerHTML;
+}
+
+function prepararNuevo() {
+    modoEdicion = false;
+    document.getElementById("tituloModal").textContent = "Nuevo Paciente";
+    document.getElementById("pacId").disabled = false;
+    document.getElementById("pacId").value = "";
+    document.getElementById("pacNombre").value = "";
+    document.getElementById("pacEdad").value = "";
+    document.getElementById("pacObs").value = "";
+    ocultar("errorPaciente");
+}
+
+function prepararEditar(p) {
+    modoEdicion = true;
+    document.getElementById("tituloModal").textContent = "Editar Paciente #" + p.id;
+    document.getElementById("pacId").value = p.id;
+    document.getElementById("pacId").disabled = true;
+    document.getElementById("pacNombre").value = p.nombre || "";
+    document.getElementById("pacEdad").value = p.edad ?? "";
+    document.getElementById("pacObs").value = p.observaciones || "";
+    ocultar("errorPaciente");
+    modalPaciente().show();
+}
+
+async function guardarPaciente() {
+    const id = parseInt(document.getElementById("pacId").value, 10);
+    const nombre = document.getElementById("pacNombre").value.trim();
+    const edadRaw = document.getElementById("pacEdad").value;
+    const edad = edadRaw === "" ? null : parseInt(edadRaw, 10);
+    const observaciones = document.getElementById("pacObs").value.trim() || null;
+    try {
+        if (modoEdicion) {
+            await enviarJSON(`/api/web/paciente/${id}`, "PUT", { nombre, edad, observaciones });
+        } else {
+            await enviarJSON("/api/web/pacientes", "POST", { id, nombre, edad, observaciones });
+        }
+        modalPaciente().hide();
+        cargar();
+    } catch (e) {
+        mostrar("errorPaciente", e.message);
+    }
+}
+
+function prepararCuenta(id, nombre) {
+    document.getElementById("cuentaPara").textContent = `Paciente #${id} — ${nombre}`;
+    document.getElementById("cuentaUsuario").value = "";
+    document.getElementById("cuentaPass").value = "";
+    document.getElementById("modalCuenta").dataset.pid = id;
+    ocultar("errorCuenta");
+    modalCuenta().show();
+}
+
+async function guardarCuenta() {
+    const id = document.getElementById("modalCuenta").dataset.pid;
+    const nombre_usuario = document.getElementById("cuentaUsuario").value.trim();
+    const contrasena = document.getElementById("cuentaPass").value;
+    try {
+        await enviarJSON(`/api/web/paciente/${id}/cuenta`, "POST", { nombre_usuario, contrasena });
+        modalCuenta().hide();
+        cargar();
+    } catch (e) {
+        mostrar("errorCuenta", e.message);
+    }
+}
+
+function mostrar(id, msg) { const el = document.getElementById(id); el.textContent = msg; el.classList.remove("d-none"); }
+function ocultar(id) { document.getElementById(id).classList.add("d-none"); }
+
+// Delegación de clicks en la tabla: un solo listener para Editar y Crear cuenta.
+document.getElementById("tablaPacientes").addEventListener("click", (ev) => {
+    const btnEditar = ev.target.closest(".js-editar");
+    if (btnEditar) {
+        prepararEditar(pacientesPorId[btnEditar.dataset.id]);
+        return;
+    }
+    const btnCuenta = ev.target.closest(".js-cuenta");
+    if (btnCuenta && !btnCuenta.disabled) {
+        const p = pacientesPorId[btnCuenta.dataset.id];
+        prepararCuenta(p.id, p.nombre);
+    }
+});
+
+cargar();
+</script>
+{% endblock %}
