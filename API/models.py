@@ -2,12 +2,17 @@
 
 Tablas: paciente, usuario, sesion, repeticion.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 
 from flask_login import UserMixin
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from extensions import db
+
+
+def _ahora():
+    """Fecha/hora actual en UTC (tz-aware)."""
+    return datetime.now(timezone.utc)
 
 
 class Paciente(db.Model):
@@ -71,7 +76,7 @@ class Sesion(db.Model):
     id_envio = db.Column(db.String(64), unique=True, nullable=False)
     brazo = db.Column(db.String(10), nullable=False)  # 'izquierdo' | 'derecho'
     # La fecha la pone el servidor al recibir (la Pico no tiene reloj).
-    fecha = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    fecha = db.Column(db.DateTime(timezone=True), default=_ahora, nullable=False)
     rom_calibrado_grados = db.Column(db.Float, nullable=True)
     duracion_s = db.Column(db.Integer, nullable=True)
     # Cantidad de repeticiones de la sesion.
