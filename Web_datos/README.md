@@ -26,7 +26,7 @@ Se levantan junto con la API:
 
 ```bash
 cd ../API
-flask --app app run
+python -m flask --app app run
 # luego abrir http://localhost:5000/ingreso
 ```
 

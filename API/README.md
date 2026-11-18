@@ -23,7 +23,7 @@ La base se crea sola en `instance/redux.db` al arrancar (está en `.gitignore`).
 ## Correr el servidor
 
 ```bash
-flask --app app run            # http://localhost:5000
+python -m flask --app app run  # http://localhost:5000
 # o
 python app.py                  # host 0.0.0.0, debug apagado
 ```
@@ -33,7 +33,7 @@ python app.py                  # host 0.0.0.0, debug apagado
 ## Crear un usuario médico
 
 ```bash
-flask --app app crear-medico   # pide nombre de usuario y contraseña
+python -m flask --app app crear-medico   # pide nombre de usuario y contraseña
 ```
 
 ## Endpoints

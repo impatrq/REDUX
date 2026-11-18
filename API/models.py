@@ -15,6 +15,19 @@ def _ahora():
     return datetime.now(timezone.utc)
 
 
+def a_utc_iso(dt):
+    """Devuelve el datetime como ISO en UTC (con offset +00:00).
+
+    SQLite guarda la fecha sin zona; como siempre la guardamos en UTC, si
+    viene naive la marcamos como UTC para que el front no la tome como local.
+    """
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat()
+
+
 class Paciente(db.Model):
     __tablename__ = "paciente"
 
@@ -98,7 +111,7 @@ class Sesion(db.Model):
             "id_sesion": self.id,
             "paciente_id": self.paciente_id,
             "brazo": self.brazo,
-            "fecha": self.fecha.isoformat() if self.fecha else None,
+            "fecha": a_utc_iso(self.fecha),
             "rom_calibrado_grados": self.rom_calibrado_grados,
             "duracion_s": self.duracion_s,
             "repeticiones": self.repeticiones,

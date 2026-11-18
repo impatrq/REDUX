@@ -23,7 +23,9 @@
 
 <div class="card p-3 mb-4">
     <h5 class="mb-3">Evolución por sesión</h5>
-    <canvas id="grafico" height="110"></canvas>
+    <div style="position: relative; min-height: 300px;">
+        <canvas id="grafico"></canvas>
+    </div>
     <p class="subtitulo mt-2 mb-0 small" id="sinDatos"></p>
 </div>
 
@@ -95,12 +97,13 @@ function dibujar(datos) {
         data: {
             labels: etiquetas,
             datasets: [
-                { label: "Rango medio (°)", data: rango, borderColor: COLOR_RANGO, backgroundColor: "rgba(13,202,240,0.1)", yAxisID: "y", tension: 0.3, fill: true },
-                { label: "Asistencia media (%)", data: asist, borderColor: COLOR_ASIST, backgroundColor: "rgba(214,180,255,0.1)", yAxisID: "y1", tension: 0.3, fill: true },
+                { label: "Rango medio (°)", data: rango, borderColor: COLOR_RANGO, backgroundColor: "rgba(13,202,240,0.15)", yAxisID: "y", tension: 0.3, fill: true, pointRadius: 6, pointHoverRadius: 8, borderWidth: 2 },
+                { label: "Asistencia media (%)", data: asist, borderColor: COLOR_ASIST, backgroundColor: "rgba(214,180,255,0.15)", yAxisID: "y1", tension: 0.3, fill: true, pointRadius: 6, pointHoverRadius: 8, borderWidth: 2 },
             ],
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             scales: {
                 y: { position: "left", title: { display: true, text: "Grados (°)", color: "#fff" }, ticks: { color: "#fff" } },
                 y1: { position: "right", title: { display: true, text: "Asistencia (%)", color: "#fff" }, grid: { drawOnChartArea: false }, ticks: { color: "#fff" } },

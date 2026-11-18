@@ -7,7 +7,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user
 
 from extensions import db
-from models import Paciente, Sesion, Usuario
+from models import Paciente, Sesion, Usuario, a_utc_iso
 from seguridad import medico_json, sesion_json
 
 bp = Blueprint("api_web", __name__, url_prefix="/api/web")
@@ -21,7 +21,7 @@ def _ultima_sesion(paciente):
         .order_by(Sesion.fecha.desc())
         .first()
     )
-    return sesion.fecha.isoformat() if sesion else None
+    return a_utc_iso(sesion.fecha) if sesion else None
 
 
 @bp.get("/pacientes")
