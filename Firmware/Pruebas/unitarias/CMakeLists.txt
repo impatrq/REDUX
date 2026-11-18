@@ -130,3 +130,17 @@ redux_add_test(test_supervisor
         ${REDUX_ROOT}/src/control/limits.c
         ${REDUX_ROOT}/src/control/power.c
 )
+
+# --- Sesiones · estadística por repetición y armado del JSON -----------------
+# rep_stats es lógica pura (detección y estadística de repeticiones).
+redux_add_test(test_rep_stats
+        test_rep_stats.c
+        ${REDUX_ROOT}/src/control/rep_stats.c
+)
+
+# session arma el resultado y el JSON @SESION; usa rep_stats.
+redux_add_test(test_session_json
+        test_session_json.c
+        ${REDUX_ROOT}/src/app/session.c
+        ${REDUX_ROOT}/src/control/rep_stats.c
+)

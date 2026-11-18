@@ -127,8 +127,10 @@ Por el monitor serie USB (una línea por comando):
 | `t N` | Intensidad simulada de tríceps (extensión) al N %; solo si el tríceps es SERIAL |
 | `r` | Reposo: pone a 0 los canales simulados (no toca los canales ADC) |
 | `ok` | Confirmar (arranque / calibración) |
-| `cancel` | Cancelar el paso actual |
+| `cancel` | Cancelar el paso actual (en `RUN` termina la sesión, igual que `fin`) |
 | `recal` | Volver a calibrar desde el rango (ROM) |
+| `sesion <id> <i\|d>` | Iniciar una sesión desde `IDLE` (i = izquierdo, d = derecho; `id` 0 = sin paciente, no se guarda) |
+| `fin` | Terminar la sesión en marcha: apaga el motor, cierra la repetición y publica el resultado |
 | `hang` | Solo en modo banco: cuelga el lazo para probar el watchdog |
 
 La fuente de EMG se elige **por canal** al compilar (`-DREDUX_EMG_BIC` / `-DREDUX_EMG_TRI`,
@@ -139,15 +141,37 @@ indicando qué canal es simulado.
 ## Estados (supervisor de seguridad)
 
 ```
-BOOT → CHECK_ENC → CALIB_ROM → CALIB_REST → CALIB_MVC → ARMING → RUN
-                                                                    ↕
-                                                                  FAULT
+BOOT → CHECK_ENC → IDLE → CALIB_ROM → CALIB_REST → CALIB_MVC → ARMING → RUN
+                    ↑                                                     │
+                    └──────────────── fin / cancel ───────────────────────┘
+                                                                          ↕
+                                                                        FAULT
 ```
 
 El motor **solo recibe PWM en `RUN`**. Cualquier falla (encoder, saturación de EMG,
 sobrepaso del ciclo) lleva a `FAULT` con corte inmediato; el rearme exige lecturas
 estables y ambos músculos en reposo. Transiciones completas en
 [docs/state_machine.md](docs/state_machine.md).
+
+## Sesiones
+
+El exo se usa por **sesiones** de un paciente. Desde `IDLE` (listo, sin sesión, motor
+apagado) se inicia con `sesion <id_paciente> <i|d>` y se recorre la calibración
+(`CALIB_ROM → CALIB_REST → CALIB_MVC`) y la marcha (`ARMING → RUN`). Cada paso de
+calibración espera confirmación (`ok` o el pulsador); el reposo y las contracciones miden
+2 s y, al terminar, imprimen sus valores. En `RUN` se cuentan las **repeticiones** (rango,
+asistencia del motor y duración). `fin` termina la sesión y publica el resultado por USB en
+una línea que empieza con `@SESION ` seguida del JSON que espera `POST /api/sesion`:
+
+```
+@SESION {"id_envio":"s…","id_paciente":7,"brazo":"derecho","rom_calibrado_grados":120.5,
+"duracion_s":42,"repeticiones":[{"numero":1,"rango_grados":90.0,"asistencia_pct":50.0,
+"duracion_ms":900}, …]}
+```
+
+La sesión no se guarda (no se emite `@SESION`, se avisa el motivo) si no tuvo repeticiones
+o si `id_paciente` es 0. El reporte de estado periódico incluye la sesión actual
+(`ses=`, `pac=`, `brazo=`, `reps=`).
 
 ## Abrir el proyecto en VS Code
 

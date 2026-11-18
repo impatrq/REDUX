@@ -29,6 +29,8 @@ static const char *state_name(sys_state_t s) {
         return "BOOT";
     case ST_CHECK_ENC:
         return "CHECK_ENC";
+    case ST_IDLE:
+        return "IDLE";
     case ST_CALIB_ROM:
         return "CALIB_ROM";
     case ST_CALIB_REST:
@@ -65,11 +67,12 @@ static void report_build(uint64_t now_us, uint64_t *last_us) {
     const int n = snprintf(
         g_rep, sizeof(g_rep),
         "st=%s th=%.1f raw=%ld bic=%.0f/%.2f tri=%.0f/%.2f dir=%d pwm=%c duty=%.2f F=0x%02X "
-        "simB=%d simT=%d trep=%lluus\n",
+        "simB=%d simT=%d ses=%d pac=%ld brazo=%c reps=%u trep=%lluus\n",
         state_name(s.state), (double)s.angle_deg, (long)s.encoder_raw, (double)s.env_bic,
         (double)s.intensity_bic, (double)s.env_tri, (double)s.intensity_tri, (int)s.dir, pwm,
         (double)s.duty, (unsigned)s.faults, (int)s.sim_bic, (int)s.sim_tri,
-        (unsigned long long)(hal_time_us() - build0));
+        (int)s.session_active, (long)s.session_patient, s.session_arm,
+        (unsigned)s.session_reps, (unsigned long long)(hal_time_us() - build0));
 
     g_rep_len = (n > 0 && (size_t)n < sizeof(g_rep)) ? (size_t)n : 0u;
     g_rep_pos = 0u;
@@ -83,6 +86,20 @@ static void report_drain(void) {
     while (g_rep_pos < g_rep_len && sent < STATUS_TX_CHUNK) {
         putchar_raw(g_rep[g_rep_pos++]);
         sent++;
+    }
+}
+
+// Drena de a chunks el resultado de la sesión (@SESION + JSON) cuando hay uno pendiente.
+// Igual que el reporte: sin bloquear y fuera de la medición del ciclo de control.
+static void session_drain(void) {
+    if (!app_session_tx_busy()) {
+        return;
+    }
+    char buf[SESSION_TX_CHUNK];
+    bool done = false;
+    const size_t n = app_session_tx_next(buf, sizeof(buf), &done);
+    for (size_t i = 0u; i < n; ++i) {
+        putchar_raw(buf[i]);
     }
 }
 
@@ -116,7 +133,7 @@ static void poll_serial(char *line, uint32_t *len) {
             diag_hang(); // no retorna
         }
 #endif
-        if (*len > 0u && !app_feed_sim(line)) {
+        if (*len > 0u && !app_feed_sim(line) && !app_feed_session(line)) {
             ui_basic_feed_line(line);
         }
         *len = 0u;
@@ -158,5 +175,7 @@ int main(void) {
         // Reporte de estado: armado y envío fuera de la medición del ciclo de control.
         report_build(hal_time_us(), &last_report_us);
         report_drain();
+        // Resultado de la sesión (@SESION): se drena cuando hay uno pendiente.
+        session_drain();
     }
 }

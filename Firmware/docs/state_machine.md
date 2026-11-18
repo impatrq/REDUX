@@ -17,24 +17,38 @@ inmediato en el mismo tick.
 | `emg_rest` | Ambos músculos en reposo (requisito para pasar a `ST_RUN`). |
 | `emg_saturated` | Algún canal de EMG saturado (falla en marcha). |
 | `cycle_overrun` | El ciclo excedió `CTRL_TICK_US` (medición de `app_tick` o ticks perdidos). |
-| `ui_event` | Evento de la interfaz: `UI_EV_CONFIRM`, `UI_EV_CANCEL`, `UI_EV_RECALIBRATE`. |
+| `ui_event` | Evento de la interfaz: `UI_EV_CONFIRM`, `UI_EV_CANCEL`, `UI_EV_RECALIBRATE`, `UI_EV_START_SESSION`. |
 
 ## Estados
 
-`ST_BOOT → ST_CHECK_ENC → ST_CALIB_ROM → ST_CALIB_REST → ST_CALIB_MVC → ST_ARMING → ST_RUN`,
-más `ST_FAULT`. La calibración de rango (ROM, Fase 3) va antes de las dos tomas de EMG
-(reposo y contracción máxima, Fase 4).
+`ST_BOOT → ST_CHECK_ENC → ST_IDLE → ST_CALIB_ROM → ST_CALIB_REST → ST_CALIB_MVC → ST_ARMING →
+ST_RUN`, más `ST_FAULT`. `ST_IDLE` es "listo, sin sesión, motor apagado": el exo espera a
+que el usuario inicie una sesión. La calibración de rango (ROM, Fase 3) va antes de las dos
+tomas de EMG (reposo y contracción máxima, Fase 4) y es el primer paso de cada sesión.
+
+## Sesiones
+
+El exo se usa por **sesiones** de un paciente. La sesión la inicia `app` con el comando de
+terminal `sesion <id_paciente> <i|d>` (hoy por USB; a futuro, la pantalla): `app` valida el
+estado y el encoder y emite `UI_EV_START_SESSION`. `id_paciente 0` corre la sesión pero no
+la guarda. El comando `fin` (o `cancel`) en `RUN` la termina. El resultado (repeticiones,
+ROM, duración en marcha) se publica por USB como `@SESION ` + el JSON de `POST /api/sesion`.
+El supervisor solo conoce los estados y `UI_EV_START_SESSION`/`UI_EV_CANCEL`; los datos del
+paciente y el armado del resultado viven en `app/session` y `control/rep_stats`.
 
 ## Transiciones
 
 ```
 BOOT        --UI_EV_CONFIRM--------------------> CHECK_ENC
-CHECK_ENC   --enc_fault == 0-------------------> CALIB_ROM        (espera, motor off, si hay falla)
+CHECK_ENC   --enc_fault == 0-------------------> IDLE             (espera, motor off, si hay falla)
+IDLE        --UI_EV_START_SESSION-------------> CALIB_ROM        (inicia la sesión)
+IDLE        --enc_fault != 0------------------> CHECK_ENC        (vuelve a verificar el encoder)
 CALIB_ROM   --calib_done----------------------> CALIB_REST
 CALIB_REST  --calib_done----------------------> CALIB_MVC
 CALIB_MVC   --calib_done----------------------> ARMING
 ARMING      --emg_rest------------------------> RUN
 RUN         --(co-contracción / límite)-------> RUN  (no cambia de estado; corta la cadena)
+RUN         --UI_EV_CANCEL ("fin")------------> IDLE             (termina y publica la sesión)
 ```
 
 Orden de decisión en cada estado: **1) fallas de seguridad** (van a `ST_FAULT` en el
@@ -45,15 +59,19 @@ mismo tick), **2) eventos de UI**, **3) progresión normal**.
 - `CALIB_ROM`, `CALIB_REST`, `CALIB_MVC`: `enc_fault != 0` → `FAULT`.
 - `ARMING`: `enc_fault != 0` o `CTRL_OVERRUN_MAX` sobrepasos seguidos → `FAULT`.
 - `RUN`: `enc_fault != 0`, overrun, o `emg_saturated` (→ `FAULT_EMG_SAT`) → `FAULT`.
-- `CHECK_ENC` no falla: espera con el motor apagado hasta que el encoder esté sano.
+- `CHECK_ENC` e `IDLE` no fallan (motor ya apagado): `CHECK_ENC` espera hasta que el
+  encoder esté sano; `IDLE`, si el encoder se cae, vuelve a `CHECK_ENC`.
 - Co-contracción y límite alcanzado **no** son fallas del supervisor: el corte lo hace
   la cadena de control (`hard_stop`), el supervisor sigue en `ST_RUN`.
 
 ### Eventos de UI
 
-- `UI_EV_RECALIBRATE` desde `CALIB_*`, `ARMING` o `RUN` → `CALIB_ROM` (motor apagado).
-- `UI_EV_CANCEL` durante `CALIB_*` → `CHECK_ENC`, sin guardar la calibración en curso.
-- `UI_EV_CANCEL` en `RUN` → `ARMING`, con el motor apagado. En `ARMING` no hace nada
+- `UI_EV_START_SESSION` (comando `sesion`) desde `IDLE` → `CALIB_ROM` (inicia la sesión).
+- `UI_EV_RECALIBRATE` desde `CALIB_*`, `ARMING` o `RUN` → `CALIB_ROM` (motor apagado); la
+  sesión en curso se conserva.
+- `UI_EV_CANCEL` durante `CALIB_*` → `IDLE`, descartando la sesión sin publicarla.
+- `UI_EV_CANCEL` en `RUN` (o el comando `fin`) → `IDLE`: **termina la sesión**, apaga el
+  motor, cierra la repetición en curso y publica el resultado. En `ARMING` no hace nada
   (ya está apagado).
 - `UI_EV_CONFIRM` en `BOOT` → `CHECK_ENC` (arranque pedido por el usuario).
 
