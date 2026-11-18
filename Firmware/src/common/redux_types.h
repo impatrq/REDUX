@@ -19,6 +19,7 @@ typedef enum {
     UI_EV_CONFIRM,        // el usuario confirma el paso actual
     UI_EV_CANCEL,         // el usuario cancela la operación
     UI_EV_RECALIBRATE,    // el usuario pide repetir la calibración
+    UI_EV_START_SESSION,  // el usuario inicia una sesión (comando "sesion", desde ST_IDLE)
 } ui_event_t;
 
 // Resultado de la lógica XOR de intención (ver control/intent).
@@ -34,6 +35,7 @@ typedef enum {
 typedef enum {
     ST_BOOT,
     ST_CHECK_ENC,
+    ST_IDLE,       // encoder OK, sin sesión, motor apagado: listo para "sesion"
     ST_CALIB_ROM,
     ST_CALIB_REST,
     ST_CALIB_MVC,

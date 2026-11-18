@@ -22,7 +22,7 @@ typedef struct {
     bool emg_rest;         // ambos músculos en reposo (requisito para pasar a ST_RUN)
     bool emg_saturated;    // algún canal de EMG saturado (falla en marcha)
     bool cycle_overrun;    // este ciclo excedió CTRL_TICK_US (medición o ticks perdidos)
-    ui_event_t ui_event;   // evento de la interfaz (CONFIRM, CANCEL, RECALIBRATE)
+    ui_event_t ui_event;   // evento de la interfaz (CONFIRM, CANCEL, RECALIBRATE, START_SESSION)
 } supervisor_in_t;
 
 // Salidas de un tick.

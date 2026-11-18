@@ -63,11 +63,20 @@ void supervisor_step(supervisor_t *sv, const supervisor_in_t *in, supervisor_out
 
     case ST_CHECK_ENC:
         // Espera, con el motor apagado, a que el encoder esté sano. No falla acá: si el
-        // imán o el bus no responden, no se avanza a la calibración.
-        if (in->ui_event == UI_EV_RECALIBRATE) {
-            sv->state = ST_CALIB_ROM;
-        } else if (in->enc_fault == FAULT_NONE) {
-            sv->state = ST_CALIB_ROM;
+        // imán o el bus no responden, no se avanza. Con el encoder OK va a ST_IDLE
+        // (listo, sin sesión), no directo a calibrar: la sesión la inicia el usuario.
+        if (in->enc_fault == FAULT_NONE) {
+            sv->state = ST_IDLE;
+        }
+        break;
+
+    case ST_IDLE:
+        // Listo, sin sesión, motor apagado. Si el encoder se cae acá (motor ya apagado,
+        // sin peligro) vuelve a verificarlo; el inicio de sesión exige encoder OK.
+        if (in->enc_fault != FAULT_NONE) {
+            sv->state = ST_CHECK_ENC;
+        } else if (in->ui_event == UI_EV_START_SESSION) {
+            sv->state = ST_CALIB_ROM; // arranca el recorrido de calibración de la sesión
         }
         break;
 
@@ -84,7 +93,7 @@ void supervisor_step(supervisor_t *sv, const supervisor_in_t *in, supervisor_out
             break;
         }
         if (in->ui_event == UI_EV_CANCEL) {
-            sv->state = ST_CHECK_ENC; // descarta la calibración en curso
+            sv->state = ST_IDLE; // descarta la calibración en curso y la sesión, sin publicar
             break;
         }
         if (in->calib_done) {
@@ -125,7 +134,10 @@ void supervisor_step(supervisor_t *sv, const supervisor_in_t *in, supervisor_out
             break;
         }
         if (in->ui_event == UI_EV_CANCEL) {
-            sv->state = ST_ARMING; // sale de marcha; el motor queda apagado
+            // "cancel" (o el comando "fin") en marcha TERMINA la sesión: el motor queda
+            // apagado y app cierra la repetición en curso, publica el resultado y pasa a
+            // ST_IDLE. No hay un evento SESSION_END aparte: cancel en RUN cumple ese rol.
+            sv->state = ST_IDLE;
             break;
         }
         // Co-contracción y límite alcanzado NO cambian el estado: el corte inmediato
