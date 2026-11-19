@@ -68,7 +68,7 @@ void ui_ScreenBegin_screen_init(void)
     lv_obj_set_style_bg_opa(ui_SaveButton, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_RecalText2 = lv_label_create(ui_SaveButton);
-    lv_obj_set_width(ui_RecalText2, LV_SIZE_CONTENT);   /// 80
+    lv_obj_set_width(ui_RecalText2, 80);
     lv_obj_set_height(ui_RecalText2, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_align(ui_RecalText2, LV_ALIGN_CENTER);
     lv_label_set_text(ui_RecalText2, "Guardar");
