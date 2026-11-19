@@ -29,12 +29,16 @@ static const char *const s_mode_names[] = {
 };
 static const char *const s_event_names[] = {
     [UI_EV_NONE] = "NONE", [UI_EV_CONFIRM] = "CONFIRM", [UI_EV_CANCEL] = "CANCEL",
-    [UI_EV_RECALIBRATE] = "RECALIBRATE",
+    [UI_EV_RECALIBRATE] = "RECALIBRATE", [UI_EV_START_SESSION] = "START_SESSION",
+};
+static const char *const s_arm_names[] = {
+    [UI_ARM_LEFT] = "izquierdo", [UI_ARM_RIGHT] = "derecho",
 };
 
 static ui_status_t s_status = {
     .mode = UI_MODE_BOOT, .prompt = UI_PROMPT_NONE, .angle_deg = 0.0f,
     .rom_deg = LAB_ROM_DEG, .faults = UI_FAULT_NONE, .duty = 0.0f,
+    .rep_count = 0u, .last_rom_deg = 0.0f,
 };
 static uint32_t s_mode_start_ms = 0u;
 static float s_angle_dir = 1.0f;     /* +1 extiende, -1 flexiona */
@@ -49,13 +53,20 @@ static void lab_set_mode(ui_mode_t mode, ui_prompt_t prompt)
 }
 
 /** Lo que haría el firmware con cada evento de la UI. */
-static void lab_on_event(ui_event_t event)
+static void lab_on_event(const ui_event_msg_t *msg)
 {
+    const ui_event_t event = msg->type;
     printf("UI | evento UI_EV_%s\n", s_event_names[event]);
 
     switch (s_status.mode) {
     case UI_MODE_IDLE:
-        if (event == UI_EV_CONFIRM) {
+        /* START_SESSION (pantalla de brazo, post-export) o CONFIRM (botón Comenzar actual). */
+        if ((event == UI_EV_START_SESSION) || (event == UI_EV_CONFIRM)) {
+            if (event == UI_EV_START_SESSION) {
+                printf("UI | sesion: brazo %s, ID \"%s\"\n", s_arm_names[msg->arm], msg->patient_id);
+            }
+            s_status.rep_count = 0u;
+            s_status.last_rom_deg = 0.0f;
             lab_set_mode(UI_MODE_CALIB_ROM, UI_PROMPT_GO_FLEX);
         }
         break;
@@ -105,6 +116,8 @@ static void lab_update_run(void)
     } else if (s_status.angle_deg <= 0.0f) {
         s_status.angle_deg = 0.0f;
         s_angle_dir = 1.0f;
+        s_status.rep_count++;                     /* Volver a flexión = repetición completa */
+        s_status.last_rom_deg = s_status.rom_deg; /* ROM de la última rep (constante en el sim) */
     } else {
         /* Sigue en la misma dirección. */
     }

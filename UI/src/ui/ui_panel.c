@@ -106,7 +106,8 @@ static uint32_t s_wifi_scan_gen = 0u;                   /* Última generación d
 static void ui_panel_emit(ui_event_t event)
 {
     if (s_event_cb != NULL) {
-        s_event_cb(event);
+        const ui_event_msg_t msg = { .type = event };  /* arm/patient_id solo en START_SESSION */
+        s_event_cb(&msg);
     }
 }
 

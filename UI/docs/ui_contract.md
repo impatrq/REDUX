@@ -1,6 +1,9 @@
 # REDUX · Contrato UI ↔ firmware
 
-Estado: **propuesta v1**, pendiente de confirmar con el compañero (S1 y S2, ver `PLAN_UI.md` §5).
+Estado: **propuesta v2**, pendiente de confirmar con el compañero (S1 y S2, ver `PLAN_UI.md` §5).
+v2 agrega: brazo (`ui_arm_t`) e ID de paciente, el evento `UI_EV_START_SESSION` con su payload
+`ui_event_msg_t`, el buffer de sesión (`ui_app_publish_session`/`ui_app_take_session`) y los campos
+`rep_count` / `last_rom_deg` en `ui_status_t`.
 Archivo de código: `src/app/ui.h`. Si este documento y el `.h` difieren, se corrige uno de los
 dos en el mismo commit.
 
@@ -23,6 +26,8 @@ dos en el mismo commit.
 | `void ui_app_init(void)` | Firmware, al arrancar (core 0) | Crea las colas; en `ui_panel` arranca el core 1 |
 | `void ui_app_publish_status(const ui_status_t *s)` | Supervisor, ~20 Hz | No bloquea; si la cola está llena descarta el más viejo |
 | `bool ui_app_poll_event(ui_event_t *ev)` | Supervisor, en cada ciclo | No bloquea; `false` si no hay eventos |
+| `void ui_app_publish_session(const ui_event_msg_t *s)` | UI (core 1), al elegir el brazo | Buffer de **último valor** (no cola): guarda brazo + ID de la sesión |
+| `bool ui_app_take_session(ui_event_msg_t *out)` | Supervisor, al sacar `UI_EV_START_SESSION` | `true` y copia si hay una sesión sin leer; `false` si no hay novedad |
 
 ## 3. Eventos (UI → firmware)
 
@@ -31,9 +36,18 @@ dos en el mismo commit.
 | `UI_EV_CONFIRM` | Botones "Comenzar" (menú), "Guardar" (calibración) y "Reintentar" (falla), apretados con B | Confirmar extremo de calibración, rearmar tras falla; en `UI_MODE_IDLE`, iniciar la sesión |
 | `UI_EV_CANCEL` | Botón "Terminar" (marcha) o tecla D durante la calibración | Terminar la sesión, cancelar la calibración |
 | `UI_EV_RECALIBRATE` | Ninguno desde el rediseño del 03/11/2026 (la calibración va dentro de cada sesión) | Pedir nueva calibración del rango; se mantiene en el enum |
+| `UI_EV_START_SESSION` | v2: botones de la pantalla de brazo (`ScreenBrazo`) | Iniciar la sesión; **al final del enum**, no cambia los valores previos |
 
 Los eventos los genera `ui_panel` según la pantalla, no la tecla cruda: en un menú, B aprieta
 el botón con foco; donde el firmware espera una confirmación, B envía `UI_EV_CONFIRM`.
+
+**Payload de `UI_EV_START_SESSION` (`ui_event_msg_t`):** `{ type, arm, patient_id }`. El brazo es
+`ui_arm_t` (`UI_ARM_LEFT`/`UI_ARM_RIGHT`); el ID es `char[UI_PATIENT_ID_MAX_LEN + 1]` (dígitos, `""`
+si está vacío). No viaja por la cola de eventos: la UI lo publica con `ui_app_publish_session()` en un
+**buffer de último valor**, y el firmware lo lee con `ui_app_take_session()` al sacar `UI_EV_START_SESSION`.
+Protección del buffer (lado firmware): una `critical_section_t` de la Pico protege una copia única más
+un flag "sin leer"; el lock se sostiene solo durante el `memcpy` (µs), así no perturba el lazo de 1 ms.
+El header sigue autocontenido (solo `<stdint.h>`/`<stdbool.h>`); el lock vive en el `.c`.
 
 ## 4. Mensaje de estado (firmware → UI): `ui_status_t`
 
@@ -45,8 +59,10 @@ el botón con foco; donde el firmware espera una confirmación, B envía `UI_EV_
 | `rom_deg` | `float` | Rango calibrado (0 si no hay calibración) |
 | `faults` | `uint32_t` | Máscara: `UI_FAULT_ENCODER`, `_OVERCURRENT`, `_ANGLE_LIMIT`, `_EMG`, `_OTHER` |
 | `duty` | `float` | Potencia aplicada 0.0–1.0 (solo para mostrar) |
+| `rep_count` | `uint32_t` | v2: repeticiones completadas en la sesión (se muestra en marcha) |
+| `last_rom_deg` | `float` | v2: rango (grados) de la última repetición, 0 si todavía no hay |
 
-Tamaño actual: 24 bytes. Frecuencia: ~20 Hz. La UI muestra siempre el último mensaje.
+Tamaño actual: 32 bytes. Frecuencia: ~20 Hz. La UI muestra siempre el último mensaje.
 
 ## 5. Traducción firmware → contrato (la completa el compañero en S2)
 
