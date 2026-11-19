@@ -49,8 +49,8 @@ typedef struct {
 /* Instrucciones de ScreenBegin; sin tildes (la fuente Montserrat 14 de LVGL es solo ASCII). */
 static const char *const s_rom_prompt_text[] = {
     [UI_PROMPT_NONE]             = "Calibrando rango",
-    [UI_PROMPT_GO_FLEX]          = "Flexiona lo mas posible",
-    [UI_PROMPT_GO_EXT]           = "Extiende lo mas posible",
+    [UI_PROMPT_GO_FLEX]          = "Flexiona lo más posible",
+    [UI_PROMPT_GO_EXT]           = "Extiende lo más posible",
     [UI_PROMPT_RELAX]            = "Calibrando rango",
     [UI_PROMPT_CONTRACT_BICEPS]  = "Calibrando rango",
     [UI_PROMPT_CONTRACT_TRICEPS] = "Calibrando rango",
@@ -60,8 +60,8 @@ static const char *const s_emg_prompt_text[] = {
     [UI_PROMPT_GO_FLEX]          = "Calibrando sensores",
     [UI_PROMPT_GO_EXT]           = "Calibrando sensores",
     [UI_PROMPT_RELAX]            = "Relaja el brazo",
-    [UI_PROMPT_CONTRACT_BICEPS]  = "Contrae el biceps",
-    [UI_PROMPT_CONTRACT_TRICEPS] = "Contrae el triceps",
+    [UI_PROMPT_CONTRACT_BICEPS]  = "Contrae el bíceps",
+    [UI_PROMPT_CONTRACT_TRICEPS] = "Contrae el tríceps",
 };
 #define UI_PANEL_PROMPT_COUNT    (sizeof(s_rom_prompt_text) / sizeof(s_rom_prompt_text[0]))
 
@@ -70,7 +70,7 @@ static const ui_panel_fault_text_t s_fault_text[] = {
     { UI_FAULT_OVERCURRENT, "Sobrecorriente en el motor" },
     { UI_FAULT_ENCODER,     "Falla del encoder" },
     { UI_FAULT_ANGLE_LIMIT, "Fuera del rango calibrado" },
-    { UI_FAULT_EMG,         "Senal EMG invalida" },
+    { UI_FAULT_EMG,         "Señal EMG inválida" },
     { UI_FAULT_OTHER,       "Falla del sistema" },
 };
 #define UI_PANEL_FAULT_COUNT     (sizeof(s_fault_text) / sizeof(s_fault_text[0]))
@@ -89,7 +89,7 @@ static const char s_wifi_empty_text[] = "Sin redes";
 static const char s_wifi_scan_failed_text[] = "Error al buscar";
 static const char s_wifi_connecting_text[] = "Conectando...";
 static const char s_wifi_connected_text[] = "Conectado";
-static const char s_wifi_connect_failed_text[] = "Fallo conexion";
+static const char s_wifi_connect_failed_text[] = "Fallo conexión";
 static const char s_wifi_locked_text[] = "Requiere clave";
 
 static ui_panel_event_cb_t s_event_cb = NULL;
@@ -311,8 +311,10 @@ static void ui_panel_setup_arm(void)
 static void ui_panel_wifi_label_text(char *text, size_t len, const hal_wifi_net_t *net)
 {
     const bool connected = (strcmp(net->ssid, s_wifi_connected) == 0);
+    /* Marcador de la red conectada en Latin-1 ("»"): la fuente por defecto (Font14Latin,
+     * rango 0x20-0xFF) no trae los símbolos FontAwesome de LV_SYMBOL_*. */
     /* Precisión acotada al SSID: el nombre entra siempre en el buffer (y lo sabe el compilador). */
-    (void)snprintf(text, len, "%s%.*s", connected ? (LV_SYMBOL_OK " ") : "",
+    (void)snprintf(text, len, "%s%.*s", connected ? "» " : "",
                    (int)HAL_WIFI_SSID_MAX_LEN, net->ssid);
 }
 
@@ -563,11 +565,11 @@ static void ui_panel_setup_session(void)
 static const char *ui_panel_save_label(ui_mode_t mode, ui_prompt_t prompt)
 {
     if (mode == UI_MODE_CALIB_ROM) {
-        return (prompt == UI_PROMPT_GO_EXT) ? "Guardar extension" : "Guardar flexion";
+        return (prompt == UI_PROMPT_GO_EXT) ? "Guardar extensión" : "Guardar flexión";
     }
     switch (prompt) {
-    case UI_PROMPT_CONTRACT_BICEPS:  return "Guardar biceps";
-    case UI_PROMPT_CONTRACT_TRICEPS: return "Guardar triceps";
+    case UI_PROMPT_CONTRACT_BICEPS:  return "Guardar bíceps";
+    case UI_PROMPT_CONTRACT_TRICEPS: return "Guardar tríceps";
     case UI_PROMPT_RELAX:
     default:                         return "Guardar reposo";
     }
