@@ -1,0 +1,18 @@
+LTspice 26.0.1 for Windows
+Circuit: C:\Users\Martin\REDUX\Circuitos\Filtros_EMG\High_Pass_20Hz\LTspice_HighPass\NoiseAnalysis.net
+Start Time: Fri Nov 13 17:50:07 2026
+solver = Normal
+Maximum thread count: 8
+tnom = 27
+temp = 27
+method = trap
+Direct Newton iteration failed to find operating point.
+Starting Gmin stepping
+Gmin stepping succeeded in finding the operating point.
+
+Total elapsed time: 0.212 seconds.
+
+Files loaded:
+C:\Users\Martin\REDUX\Circuitos\Filtros_EMG\High_Pass_20Hz\LTspice_HighPass\NoiseAnalysis.net
+C:\Users\Martin\AppData\Local\LTspice\lib\sub\LTC5.lib
+
