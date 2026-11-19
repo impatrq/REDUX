@@ -1,6 +1,6 @@
 /**
  * @file ui_core1.c
- * @brief Bucle del core 1: LVGL y nada más.
+ * @brief Bucle del core 1: LVGL y el Wi-Fi.
  */
 #include "ui/ui_core1.h"
 
@@ -10,6 +10,7 @@
 #include "pico/multicore.h"
 #include "pico/time.h"
 
+#include "hal/hal_wifi.h"
 #include "lvgl/lvgl.h"
 #include "ui/lv_port_disp.h"
 #include "ui/ui_config.h"
@@ -23,12 +24,15 @@ static void ui_core1_entry(void)
 {
     lv_init();
     lv_port_disp_init();
+    /* El CYW43 se inicia acá para que sus interrupciones caigan en el core 1. */
+    (void)hal_wifi_init();
     if (s_setup != NULL) {
         s_setup();
     }
 
     for (;;) {
         (void)lv_timer_handler();
+        hal_wifi_poll();  /* Mismo lazo que LVGL: no bloquea (el chip trabaja en su IRQ) */
         lv_port_disp_poll();
         sleep_ms(UI_LVGL_HANDLER_PERIOD_MS);
     }

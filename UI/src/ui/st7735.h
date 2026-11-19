@@ -29,11 +29,11 @@ typedef enum {
     ST7735_ERR_BUSY,    /* Hay un envío sin terminar (falta st7735_write_finish()) */
 } st7735_status_t;
 
-/** Inicializa el bus, resetea el panel y lo deja encendido (luz de fondo apagada). */
+/**
+ * Inicializa el bus, resetea el panel y lo deja encendido. La luz de fondo no se
+ * controla por software: va fija a 3V3 en la PCB (GP15 libre).
+ */
 st7735_status_t st7735_init(void);
-
-/** Prende o apaga la luz de fondo. */
-void st7735_backlight_set(bool on);
 
 /** Rellena un rectángulo con un color. Bloquea hasta terminar (con timeout). */
 st7735_status_t st7735_fill_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);

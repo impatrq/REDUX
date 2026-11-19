@@ -238,27 +238,47 @@ cualquier modo --falla--> FAULT: "Reintentar" (UI_EV_CONFIRM) --> IDLE (Main)
 
 ---
 
-## 13. Wi-Fi (04/11/2026)
+## 13. Wi-Fi (probado en placa 19/11/2026; reescrito 18/11/2026; original del 04/11/2026)
 
-Módulos: `src/hal/hal_wifi.c` (core 0, CYW43 con `pico_cyw43_arch_lwip_threadsafe_background`)
-y la pantalla `WifiScreen` en `src/ui/ui_panel.c` (core 1). Configuración de lwIP: `src/lwipopts.h`.
-Estado: **compila; falta probar en el hardware**. No forma parte de `app/ui.h`: quién maneja
-el Wi-Fi en el firmware está en `sync_log.md`.
+Módulos: `src/hal/hal_wifi.c` y la pantalla `WifiScreen` en `src/ui/ui_panel.c`, **los dos en
+el core 1** (CYW43 con `pico_cyw43_arch_lwip_threadsafe_background`). Configuración de lwIP:
+`src/lwipopts.h`. Redes guardadas: `src/ui/wifi_redes.h` (en `.gitignore`; plantilla
+`wifi_redes.example.h`). Estado: **probado en el hardware (estable)**. No forma parte de
+`app/ui.h`: quién maneja el Wi-Fi en el firmware está en `sync_log.md`.
 
-```text
-core 1 (UI)  --pedidos: ESCANEAR, CONECTAR(ssid)-->  core 0 (hal_wifi_poll cada 10 ms)
-core 1 (UI)  <--reportes: estado + lista de redes--  core 0
-```
+**Todo el Wi-Fi corre en el core 1**, en el mismo lazo que `lv_timer_handler()`
+(`src/ui/ui_core1.c`): `hal_wifi_init()` una vez y `hal_wifi_poll()` en cada vuelta. El chip se
+inicia en el core 1 para que sus interrupciones (escaneo y trabajo de fondo) caigan ahí. Tras
+iniciarlo se **desactiva el ahorro de energía** del CYW43 con `cyw43_wifi_pm(..., CYW43_PERFORMANCE_PM)`:
+ese preset usa `CYW43_NO_POWERSAVE_MODE`, así la radio no duerme entre balizas (era la causa de
+asociaciones lentas y de caídas). Se eligió `PERFORMANCE_PM` sobre `NONE_PM` (ambos sin ahorro)
+por ser el de timings recomendados por el SDK; el consumo extra es despreciable frente al motor.
+**El core 0 no toca nada del Wi-Fi** porque en el firmware controla el motor cada 1 ms. Como no hay
+cruce de núcleos, **no hay colas**: la UI pide con `hal_wifi_request_scan()` /
+`hal_wifi_request_connect(ssid)` (sin retorno) y lee el estado con getters
+(`hal_wifi_get_state()`, `hal_wifi_connected_ssid()`, `hal_wifi_scan_generation()`,
+`hal_wifi_get_nets()`). `poll()` no bloquea: solo consulta estado, así la animación y el teclado
+no se traban mientras escanea o conecta.
 
 | Qué | Cómo |
 | --- | --- |
-| Arranque | `hal_wifi_init()` en el core 0 antes de lanzar el core 1 (crea las colas); si el chip no arranca, la UI muestra "Wifi apagado" |
-| Escaneo | Cada vez que se entra a Wifi. Sin redes ocultas; igual SSID = una sola (la de mejor señal); máximo `UI_WIFI_MAX_NETS` (8); timeout 10 s |
-| Orden | Primero las abiertas, después las que piden clave; en cada grupo, de mejor a peor señal |
-| Botones | Abiertas en violeta, con clave en gris. La conectada lleva un tilde. A/C recorren redes y Volver; D vuelve |
-| B en una abierta | Conecta (asociación y DHCP, timeout 15 s). Si había otra conexión, se suelta antes |
-| B en una con clave | El título dice "Requiere clave"; no intenta conectar (no hay cómo escribir la clave) |
+| Arranque | `hal_wifi_init()` en el core 1 antes del lazo; si el chip no arranca, la UI muestra "Wifi apagado" |
+| Autoconexión | Al arrancar escanea y se conecta sola a la **primera red de `wifi_redes.h` (en orden) que aparezca** |
+| Redes guardadas | `wifi_redes.h`: lista SSID + clave. Con clave → WPA2/WPA3 mixto (`CYW43_AUTH_WPA2_MIXED_PSK`); clave `""` → abierta (`CYW43_AUTH_OPEN`). Orden = prioridad |
+| Escaneo | Al entrar a Wifi (manual) y en la autoconexión. Sin ocultas; igual SSID = una (mejor señal); máx. `UI_WIFI_MAX_NETS` (8); timeout 10 s |
+| Orden | Primero las conectables (abiertas o guardadas), después las demás; en cada grupo, de mejor a peor señal |
+| Botones | Abiertas en violeta, **guardadas en verde**, con clave y no guardadas en gris. La conectada lleva un tilde. A/C recorren redes y Volver; D vuelve |
+| B en abierta o guardada | Conecta (asociación y DHCP, timeout `UI_WIFI_CONNECT_TIMEOUT_MS` = 30 s; la guardada usa su clave). Si había otra conexión, se suelta antes |
+| B en una con clave no guardada | El título dice "Requiere clave"; no intenta conectar |
+| Pérdida de enlace | Se da por perdida solo si el enlace sigue caído `UI_WIFI_LINK_LOST_MS` (5 s) seguidos; los estados intermedios (JOIN/NOIP de una renovación de DHCP) no cuentan, así un microcorte no marca "Desconectado" |
+| Reconexión | Si se cae, reintenta sola cada `UI_WIFI_RECONNECT_MS` (15 s) con la **última red conectada** (guardada o elegida a mano). No reintenta mientras haya un escaneo o una conexión en curso |
 | Título (`LblRedes`) | "Buscando...", "Redes", "Sin redes", "Error al buscar", "Conectando...", "Conectado", "Fallo conexion", "Desconectado" (se cayó), "Wifi apagado" |
 
-Colas: 4 pedidos y 4 reportes; con la cola de reportes llena se pierde el más viejo. Cada
-reporte lleva la lista completa, así que la UI siempre se queda con el último.
+La UI rehace la lista cuando cambia `hal_wifi_scan_generation()` (contador que sube con cada
+escaneo terminado), así no depende de atrapar un estado puntual.
+
+**Mensajes por USB** (`printf`, para diagnóstico en la placa): al conectar, el RSSI y la IP
+(`WIFI | conectado a <ssid> (<rssi> dBm, IP <ip>)`); al fallar, al vencer el timeout o al
+perderse el enlace, el código de estado del CYW43 (`cyw43_tcpip_link_status`) y el RSSI
+(p. ej. `se perdio la conexion a <ssid> (link 2, -80 dBm)`). El `link` va de `0` (down) a `3`
+(up, con IP); los valores negativos son fallos (`-1` genérico, `-2` sin red, `-3` auth).

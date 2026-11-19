@@ -78,8 +78,6 @@ void lv_port_disp_init(void)
     s_disp_drv.wait_cb = lv_port_disp_wait_cb;
     s_disp_drv.sw_rotate = 1;  /* Rotación por software: el panel y sus desplazamientos no cambian */
     s_disp = lv_disp_drv_register(&s_disp_drv);
-
-    st7735_backlight_set(true);
 }
 
 void lv_port_disp_poll(void)

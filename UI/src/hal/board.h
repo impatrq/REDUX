@@ -2,12 +2,11 @@
  * @file board.h
  * @brief Asignación de pines de REDUX usada por la línea UI.
  *
- * PROVISORIO: armado desde la tabla "Pinout definitivo" del plan principal
- * (docs/PLAN_UI.md, sección 2). El board.h real está en redux-firmware, en la
- * computadora del compañero. Cuando llegue (sincronización S1), se reemplaza
- * este archivo por aquel y se anota en docs/sync_log.md.
- *
- * No cambiar pines acá por cuenta propia.
+ * Pines reconciliados con el board.h del firmware (../Firmware/src/hal/board.h,
+ * tabla "Pinout definitivo"): ese archivo manda. Acá se mantienen los nombres
+ * BOARD_PIN_LCD_* / BOARD_PIN_KEY_* que usa el código de la UI, con los mismos
+ * números de GPIO. No cambiar pines acá por cuenta propia; si el firmware cambia
+ * uno, se actualiza este archivo y se anota en docs/sync_log.md.
  */
 #ifndef BOARD_H
 #define BOARD_H
@@ -19,7 +18,8 @@
 #define BOARD_PIN_LCD_DC         12u  /* DC / A0,  pin físico 16 */
 #define BOARD_PIN_LCD_CS         13u  /* CS manual, pin físico 17 */
 #define BOARD_PIN_LCD_RST        14u  /* RST / RES, pin físico 19 */
-#define BOARD_PIN_LCD_BL         15u  /* Luz de fondo (PWM), pin físico 20 */
+/* GP15 (pin físico 20) queda libre: la luz de fondo de la ST7735 va fija a 3V3
+ * en la PCB, no la maneja el micro (igual que en el board.h del firmware). */
 
 /* ---- Teclado matricial 4x4 ---- */
 #define BOARD_KEYPAD_ROWS        4u

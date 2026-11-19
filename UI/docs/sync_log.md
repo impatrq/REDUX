@@ -16,6 +16,57 @@ Formato:
 
 ---
 
+## 2026-11-19 · S1 · Wi-Fi probado en la placa y afinado
+
+- Pedido:   —
+- Recibido: —
+- Enviado:  —
+- Cambios:  tras probar con varias redes (abiertas y WPA2), ajustes de robustez en `hal_wifi.c`
+            y `ui_config.h`:
+  - Timeout de conexión 15 s → **30 s** (`UI_WIFI_CONNECT_TIMEOUT_MS`): algunas redes tardan
+    >15 s en asociar + DHCP.
+  - Ahorro de energía del CYW43 **desactivado** (`cyw43_wifi_pm(..., CYW43_PERFORMANCE_PM)`):
+    la radio no duerme entre balizas (causa de asociaciones lentas y caídas). Se eligió
+    `PERFORMANCE_PM` sobre `NONE_PM` (ambos sin ahorro) por ser el de timings recomendados.
+  - **Antirrebote de pérdida** de 5 s (`UI_WIFI_LINK_LOST_MS`): el enlace se da por perdido solo
+    si sigue caído 5 s seguidos; los JOIN/NOIP intermedios de una renovación de DHCP no cuentan.
+  - **Mensajes** por USB: al conectar, RSSI + IP; al fallar/perder, el `link status` del CYW43
+    y el RSSI.
+  - Resultado: estable en la placa (incluidas las redes que antes tardaban o se caían). Ver
+    `docs/ui_contract.md` §13.
+- Pendiente:
+  - [ ] Confirmar con el firmware que GP15 efectivamente queda libre (no lo usa para otra cosa).
+  - [ ] ¿El firmware necesita saber el estado del Wi-Fi (conectado/SSID) por el contrato, o es
+        solo asunto de la UI?
+
+## 2026-11-18 · S1 · El firmware ya está en el repo (`../Firmware`); Wi-Fi al core 1
+
+- Pedido:   —
+- Recibido: el firmware ahora vive en `../Firmware` (mismo repo). Su `board.h`
+            (`../Firmware/src/hal/board.h`) es el que manda. Se puede leer, no se modifica desde `UI/`.
+- Enviado:  —
+- Cambios:
+  - Pines de `src/hal/board.h` (UI) reconciliados con el del firmware: coinciden (pantalla
+    GP10–GP14, teclado GP16–GP22 + GP0, LED GP2, botón GP3). Se mantienen los nombres
+    `BOARD_PIN_LCD_*` / `BOARD_PIN_KEY_*` que usa el código de la UI.
+  - **Luz de fondo:** el LED de la ST7735 va fijo a 3V3 en la PCB. Se sacó `BOARD_PIN_LCD_BL`
+    (GP15) y su manejo en `st7735.c` / `lv_port_disp.c`. **GP15 queda libre.**
+  - **Wi-Fi al core 1:** `hal_wifi_init()` y `hal_wifi_poll()` corren en `ui_core1` (mismo lazo
+    que LVGL); el CYW43 se inicia en el core 1 para que sus IRQ caigan ahí. El core 0 ya no toca
+    el Wi-Fi (en el firmware ese núcleo maneja el motor cada 1 ms). Se eliminaron las colas entre
+    núcleos: la UI usa getters + contador de generación de escaneo.
+  - **Redes guardadas:** `src/ui/wifi_redes.h` (lista SSID+clave WPA2, en `.gitignore`) con
+    plantilla `wifi_redes.example.h`. Autoconexión al arrancar a la primera red guardada que
+    aparezca; en `WifiScreen` las guardadas se marcan en verde y conectan con B usando su clave;
+    reconexión automática cada 15 s a la última red conectada.
+  - Ver `docs/ui_contract.md` §13 (reescrito).
+- Pendiente:
+  - [ ] Confirmar con el firmware que GP15 efectivamente queda libre (no lo usa para otra cosa).
+  - [x] Probar el Wi-Fi en el hardware: escaneo, autoconexión y reconexión sin trabar la
+        animación ni el teclado. Probado el 19/11 (estable); afinado en la entrada de ese día.
+  - [ ] ¿El firmware necesita saber el estado del Wi-Fi (conectado/SSID) por el contrato, o es
+        solo asunto de la UI?
+
 ## Preguntas abiertas para S1
 
 - [ ] Enviar `src/hal/board.h` del firmware (o la tabla de pines vigente).
