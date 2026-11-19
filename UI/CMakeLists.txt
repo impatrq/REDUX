@@ -74,8 +74,12 @@ set_source_files_properties(${REDUX_UI_LAB_SOURCES} PROPERTIES
     COMPILE_OPTIONS "-Wall;-Wextra;-Werror;-Wshadow;-Wconversion;-Wdouble-promotion;-Wstrict-prototypes;-Wmissing-prototypes"
 )
 
-# src/ es la raíz de includes: "app/ui.h", "hal/board.h", "ui/ui_config.h", "lwipopts.h".
-target_include_directories(redux_ui_lab PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
+# src/ es la raíz de includes: "ui/ui_config.h", "hal/hal_wifi.h", "lwipopts.h". El contrato
+# "app/ui.h" y los pines "hal/board.h" son únicos y viven en el firmware (../Firmware/src): se
+# agrega esa raíz DESPUÉS de src/ para que esos dos salgan de ahí (no hay copias en UI/src).
+target_include_directories(redux_ui_lab PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}/src
+    ${CMAKE_CURRENT_LIST_DIR}/../Firmware/src)
 
 pico_set_program_name(redux_ui_lab "redux_ui_lab")
 pico_set_program_version(redux_ui_lab "0.1")
