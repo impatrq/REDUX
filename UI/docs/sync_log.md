@@ -16,6 +16,57 @@ Formato:
 
 ---
 
+## 2026-11-19 · Paso D · Integración: un solo firmware con la UI del panel (core 1)
+
+Un único firmware en `../Firmware/` que corre la UI real del panel (LVGL + SquareLine + teclado
++ Wi-Fi en el core 1) y el control en el core 0. Elegible por CMake: `REDUX_UI=PANEL|BASIC`
+(default PANEL) y `REDUX_ENC=AS5600|SIM` (default AS5600). Compila en las dos combinaciones y en
+PANEL+SIM; el laboratorio `redux_ui_lab` sigue compilando; las 13 pruebas unitarias siguen en
+verde. Decisiones tomadas sin frenar (como se acordó):
+
+- **Contrato único:** `app/ui.h` (v2) pasó a vivir en el firmware y es la única copia. `ui_event_t`
+  salió de `redux_types.h` (ahora incluye `app/ui.h`); se agregó `src/` a los includes de las
+  pruebas. Se borraron `UI/src/app/ui.h` y `UI/src/hal/board.h`; `redux_ui_lab` ahora apunta a
+  `../Firmware/src` para `app/ui.h` y `hal/board.h`.
+- **board.h único = el del firmware.** Ganó una sección de *alias* `BOARD_*` (mismos GPIO, sin
+  números nuevos) para que el código de la UI compile sin cambiar sus nombres.
+- **Enganche del core 0** separado en `app/fw_ui.h` (ui_init/tick/poll/message/set_waiting +
+  `ui_feed_line`). `ui_init` se renombró a **`fw_ui_init`** para no chocar con el `ui_init()` del
+  export de SquareLine (ahora están en el mismo binario).
+- **Contrato cruzado `ui_app_*`** (no existía): implementado en `app/ui_panel_fw.c` con
+  `critical_section` — mailbox de estado (último valor), cola de eventos y buffer de sesión. El
+  core 1 corre `ui_core1` (LVGL + Wi-Fi) y un *setup* nuevo que cablea `ui_panel` (reemplaza a
+  `lab_screens_test`): un `lv_timer` lee el estado y llama `ui_panel_show_status`, y el callback de
+  eventos los encola al core 0.
+- **Latido (ajuste D.1):** el core 1 marca un tiempo en cada pulso de estado; el core 0 lo vigila
+  **solo después** de que el core 1 avisa que terminó de arrancar (LVGL + `hal_wifi_init`). Si se
+  pierde >500 ms, el core 0 lo inyecta como `cycle_overrun` → el supervisor entra en FAULT
+  (motor apagado) **sin tocar su lógica pura ni sus tests**. Verificado que el Wi-Fi del core 1 es
+  asíncrono (`cyw43_arch_wifi_connect_async`, escaneo por *polling*, sólo *locks* lwIP cortos): ningún
+  llamado bloquea >500 ms, así que no hizo falta subir el margen. El watchdog sigue igual.
+- **Estado → UI (20 Hz):** `sys_state_t`→`ui_mode` (BOOT/CHECK_ENC→BOOT, IDLE→IDLE, CALIB_ROM→
+  CALIB_ROM, CALIB_REST/MVC→CALIB_EMG, ARMING/RUN→RUN, FAULT→FAULT); prompt desde `g_rom.phase`/
+  `g_mvc`; `fault_t`→`UI_FAULT_*` (ENC_MASK→ENCODER, EMG_SAT→EMG, OVERRUN→OTHER;
+  ANGLE_LIMIT/OVERCURRENT quedan sin uso). `rep_count` y `last_rom_deg` desde la sesión/rep_stats
+  (se agregó `session_last_rep_range`). **`duty` se publica normalizado** `duty/DUTY_CEIL` (0..1), así
+  "100%" es la asistencia máxima de la build.
+- **Eventos UI → supervisor:** START_SESSION (toma brazo+ID por `ui_app_take_session`, equivale a
+  `sesion <id> <i|d>`), CONFIRM y CANCEL (= `fin`). Los comandos por serie siguen igual.
+- **Arranque sin pulsador:** en PANEL el core 0 inyecta un CONFIRM inicial para que
+  BOOT→CHECK_ENC→IDLE y el panel llegue solo al menú (Inicio→Main).
+- **Encoder SIM:** el ángulo sigue la **convención del firmware** (0°=flexión; extender SUBE,
+  flexionar BAJA), *no* la literal del pedido ("flexión sube"), para no romper rom_calib/limits/
+  rep_stats. En marcha integra el duty/sentido aplicados (0–`ENC_SIM_MAX_DEG`=140°). Para calibrar
+  el ROM sin hardware se agregó el comando serie **`ang <grados>`** (posiciona el encoder simulado).
+- **Fin de sesión (punto 7):** el resultado sigue saliendo por USB con `@SESION` (Wi-Fi = Paso C). El
+  panel ya muestra "Enviando datos..."→"Enviados!" al Terminar, **por tiempo (5 s)**, no atado al fin
+  real del envío ni a si la sesión se guarda (paciente 0/sin reps): el contrato v2 no tiene campo para
+  eso. Queda propuesto para el Paso C / contrato v3.
+- **Punto 5 (calibración EMG simulada por pasos, ventana de 2 s):** PENDIENTE (era "sólo si sobra
+  tiempo"). Con EMG SERIAL la calibración EMG se autocompleta como hasta ahora, así que el flujo se
+  recorre igual (reposo/bíceps/tríceps pasan rápido).
+- Los programas de banco (`Pruebas/banco`) siguen en BASIC + AS5600.
+
 ## 2026-11-19 · Paso B · Contrato v2 (brazo, ID, START_SESSION, reps/ROM) — sin sincronizar
 
 - Pedido:   nada aún; avisar en S2 junto con el contrato.
