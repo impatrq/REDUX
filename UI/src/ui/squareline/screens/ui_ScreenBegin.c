@@ -38,9 +38,9 @@ void ui_ScreenBegin_screen_init(void)
 
     ui_SettingSelect2 = lv_obj_create(ui_ScreenBegin);
     lv_obj_set_width(ui_SettingSelect2, 100);
-    lv_obj_set_height(ui_SettingSelect2, 40);
+    lv_obj_set_height(ui_SettingSelect2, 46);
     lv_obj_set_x(ui_SettingSelect2, 0);
-    lv_obj_set_y(ui_SettingSelect2, 37);
+    lv_obj_set_y(ui_SettingSelect2, 36);
     lv_obj_set_align(ui_SettingSelect2, LV_ALIGN_CENTER);
     lv_obj_clear_flag(ui_SettingSelect2, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
     lv_obj_set_style_bg_color(ui_SettingSelect2, lv_color_hex(0xFFFFFF), LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -58,9 +58,9 @@ void ui_ScreenBegin_screen_init(void)
 
     ui_SaveButton = lv_btn_create(ui_ScreenBegin);
     lv_obj_set_width(ui_SaveButton, 85);
-    lv_obj_set_height(ui_SaveButton, 25);
+    lv_obj_set_height(ui_SaveButton, 38);
     lv_obj_set_x(ui_SaveButton, 0);
-    lv_obj_set_y(ui_SaveButton, 37);
+    lv_obj_set_y(ui_SaveButton, 36);
     lv_obj_set_align(ui_SaveButton, LV_ALIGN_CENTER);
     lv_obj_add_flag(ui_SaveButton, LV_OBJ_FLAG_SCROLL_ON_FOCUS);     /// Flags
     lv_obj_clear_flag(ui_SaveButton, LV_OBJ_FLAG_SCROLLABLE);      /// Flags
@@ -68,10 +68,11 @@ void ui_ScreenBegin_screen_init(void)
     lv_obj_set_style_bg_opa(ui_SaveButton, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_RecalText2 = lv_label_create(ui_SaveButton);
-    lv_obj_set_width(ui_RecalText2, LV_SIZE_CONTENT);   /// 1
+    lv_obj_set_width(ui_RecalText2, LV_SIZE_CONTENT);   /// 80
     lv_obj_set_height(ui_RecalText2, LV_SIZE_CONTENT);    /// 1
     lv_obj_set_align(ui_RecalText2, LV_ALIGN_CENTER);
     lv_label_set_text(ui_RecalText2, "Guardar");
+    lv_obj_set_style_text_align(ui_RecalText2, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     lv_obj_add_event_cb(ui_ScreenBegin, ui_event_ScreenBegin, LV_EVENT_ALL, NULL);
 

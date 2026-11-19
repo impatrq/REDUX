@@ -3644,7 +3644,7 @@
                 "strtype": "OBJECT/Position",
                 "intarray": [
                   0,
-                  37
+                  36
                 ],
                 "InheritedType": 7
               },
@@ -3654,7 +3654,7 @@
                 "strtype": "OBJECT/Size",
                 "intarray": [
                   100,
-                  40
+                  46
                 ],
                 "InheritedType": 7
               },
@@ -3964,7 +3964,7 @@
                     "flags": 51,
                     "strtype": "OBJECT/Size",
                     "intarray": [
-                      1,
+                      80,
                       1
                     ],
                     "InheritedType": 7
@@ -4053,7 +4053,22 @@
                   },
                   {
                     "part": "lv.PART.MAIN",
-                    "childs": [],
+                    "childs": [
+                      {
+                        "nid": 10000,
+                        "strtype": "_style/StyleState",
+                        "strval": "DEFAULT",
+                        "childs": [
+                          {
+                            "nid": 10430,
+                            "strtype": "_style/Text_Align",
+                            "strval": "CENTER",
+                            "InheritedType": 3
+                          }
+                        ],
+                        "InheritedType": 1
+                      }
+                    ],
                     "nid": 1050,
                     "strtype": "LABEL/Style_main",
                     "strval": "lv.PART.MAIN, Text, Rectangle, Pad, Transform",
@@ -4099,7 +4114,7 @@
                 "strtype": "OBJECT/Position",
                 "intarray": [
                   0,
-                  37
+                  36
                 ],
                 "InheritedType": 7
               },
@@ -4109,7 +4124,7 @@
                 "strtype": "OBJECT/Size",
                 "intarray": [
                   85,
-                  25
+                  38
                 ],
                 "InheritedType": 7
               },
@@ -12396,7 +12411,7 @@
     }
   ],
   "selected_theme": "Default",
-  "selected_screen": "GUID13056097-763608S554005306",
+  "selected_screen": "GUID31415359-763605S3435306",
   "info": {
     "name": "Redux.spj",
     "depth": 1,
@@ -12424,7 +12439,7 @@
     "custom_variable_prefix": "uic",
     "separate_screen_save": false,
     "hierarchy_state_save": false,
-    "backup_cnt": 30,
+    "backup_cnt": 31,
     "autosave_cnt": 0,
     "group_color_cnt": 0,
     "imagebytearrayprefix": "",
