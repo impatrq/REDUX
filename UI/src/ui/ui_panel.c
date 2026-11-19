@@ -78,6 +78,7 @@ static const char s_fault_unknown_text[] = "Falla del sistema";
 
 static const char s_sending_text[] = "Enviando datos...";
 static const char s_sent_text[] = "Enviados!";
+static const char s_measuring_text[] = "Midiendo...";
 
 /* Título de Wifi (LblRedes) según el estado; cortos para que entren en 128 px. */
 static const char s_wifi_title_text[] = "Redes";
@@ -96,6 +97,13 @@ static bool s_has_mode = false;      /* false hasta el primer mensaje de estado 
 static ui_mode_t s_mode = UI_MODE_BOOT;
 static uint32_t s_last_press = 0u;   /* Última pulsación que generó un evento */
 static lv_timer_t *s_send_timer = NULL;  /* "Enviando datos..." en curso */
+
+/* Calibración: tras apretar "Guardar", la pantalla muestra "Midiendo..." hasta que el estado
+ * (modo o prompt) avance. Se recuerda qué estaba midiéndose para detectar el avance. */
+static bool s_measuring = false;
+static ui_mode_t s_measuring_mode = UI_MODE_BOOT;
+static ui_prompt_t s_measuring_prompt = UI_PROMPT_NONE;
+static ui_prompt_t s_shown_prompt = UI_PROMPT_NONE;  /* Último prompt mostrado en ScreenBegin */
 
 static lv_obj_t *s_wifi_list = NULL;                    /* Contenedor de los botones de redes */
 static hal_wifi_net_t s_wifi_nets[UI_WIFI_MAX_NETS];    /* Red de cada botón, en el mismo orden */
@@ -481,6 +489,13 @@ static void ui_panel_setup_profile(void)
 static void ui_panel_save_cb(lv_event_t *e)
 {
     (void)e;
+    if (s_measuring) {
+        return;  /* Ya se está midiendo este paso: una sola confirmación */
+    }
+    s_measuring = true;
+    s_measuring_mode = s_mode;
+    s_measuring_prompt = s_shown_prompt;
+    ui_panel_set_text(ui_LblInstruccion, s_measuring_text);
     ui_panel_emit(UI_EV_CONFIRM);  /* El firmware guarda el extremo y pasa al paso siguiente */
 }
 
@@ -544,11 +559,45 @@ static void ui_panel_setup_session(void)
 
 /* ---- Contenido de cada pantalla ---- */
 
+/** Texto del botón "Guardar" según el paso de calibración. */
+static const char *ui_panel_save_label(ui_mode_t mode, ui_prompt_t prompt)
+{
+    if (mode == UI_MODE_CALIB_ROM) {
+        return (prompt == UI_PROMPT_GO_EXT) ? "Guardar extension" : "Guardar flexion";
+    }
+    switch (prompt) {
+    case UI_PROMPT_CONTRACT_BICEPS:  return "Guardar biceps";
+    case UI_PROMPT_CONTRACT_TRICEPS: return "Guardar triceps";
+    case UI_PROMPT_RELAX:
+    default:                         return "Guardar reposo";
+    }
+}
+
+/**
+ * ScreenBegin: mientras se mide el paso recordado, deja "Midiendo..."; cuando el estado avanza
+ * (cambia modo o prompt) muestra la instrucción y el texto del botón del paso nuevo.
+ */
+static void ui_panel_update_calib(const ui_status_t *status, const char *const prompt_table[])
+{
+    if (s_measuring && (status->mode == s_measuring_mode) && (status->prompt == s_measuring_prompt)) {
+        return;
+    }
+    s_measuring = false;
+    s_shown_prompt = status->prompt;
+    ui_panel_set_text(ui_LblInstruccion, ui_panel_prompt_text(prompt_table, status->prompt));
+    ui_panel_set_text(ui_RecalText2, ui_panel_save_label(status->mode, status->prompt));
+}
+
 static void ui_panel_update_run(const ui_status_t *status)
 {
     char text[UI_PANEL_TEXT_LEN];
     (void)snprintf(text, sizeof(text), "%ld grados", (long)ui_panel_round(status->angle_deg));
     ui_panel_set_text(ui_Lblangulo, text);
+
+    (void)snprintf(text, sizeof(text), "%lu reps", (unsigned long)status->rep_count);
+    ui_panel_set_text(ui_LblReps, text);
+    (void)snprintf(text, sizeof(text), "ROM %ld°", (long)ui_panel_round(status->last_rom_deg));
+    ui_panel_set_text(ui_LblRom, text);
 
     /* El texto y la barra usan el mismo porcentaje entero. */
     int32_t percent = ui_panel_round(status->duty * UI_PANEL_PERCENT_FULL);
@@ -629,15 +678,12 @@ void ui_panel_show_status(const ui_status_t *status)
         }
         s_mode = status->mode;
         s_has_mode = true;
+        s_measuring = false;  /* Un cambio de modo cierra cualquier "Midiendo..." pendiente */
     }
 
     switch (status->mode) {
-    case UI_MODE_CALIB_ROM:
-        ui_panel_set_text(ui_LblInstruccion, ui_panel_prompt_text(s_rom_prompt_text, status->prompt));
-        break;
-    case UI_MODE_CALIB_EMG:
-        ui_panel_set_text(ui_LblInstruccion, ui_panel_prompt_text(s_emg_prompt_text, status->prompt));
-        break;
+    case UI_MODE_CALIB_ROM: ui_panel_update_calib(status, s_rom_prompt_text); break;
+    case UI_MODE_CALIB_EMG: ui_panel_update_calib(status, s_emg_prompt_text); break;
     case UI_MODE_RUN:   ui_panel_update_run(status);   break;
     case UI_MODE_FAULT: ui_panel_update_fault(status); break;
     case UI_MODE_BOOT:
