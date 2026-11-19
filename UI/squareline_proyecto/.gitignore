@@ -1,0 +1,5 @@
+# Derivados y config local de SquareLine Studio (no se versionan).
+# Sí se versionan: Redux.spj, Redux.sll, Themes.slt, project.info, assets/, components/.
+Redux.slp
+backup/
+cache/
