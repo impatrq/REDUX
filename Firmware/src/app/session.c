@@ -87,6 +87,13 @@ int32_t session_patient(const session_t *s) { return s->result.id_paciente; }
 char session_arm(const session_t *s) { return s->result.brazo; }
 uint16_t session_reps(const session_t *s) { return s->result.n_reps; }
 
+float session_last_rep_range(const session_t *s) {
+    if (s->result.n_reps == 0u) {
+        return 0.0f;
+    }
+    return s->result.repeticiones[s->result.n_reps - 1u].rango_grados;
+}
+
 bool session_should_send(const ui_session_result_t *r, const char **motivo) {
     if (r->id_paciente == 0) {
         if (motivo != NULL) {

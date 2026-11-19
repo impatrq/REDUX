@@ -29,7 +29,7 @@ static void queue_push(ui_event_t ev) {
     }
 }
 
-void ui_init(void) {
+void fw_ui_init(void) {
     s_head = 0u;
     s_tail = 0u;
     s_waiting = false;
@@ -72,7 +72,7 @@ void ui_set_waiting(bool waiting) {
     }
 }
 
-void ui_basic_feed_line(const char *line) {
+void ui_feed_line(const char *line) {
     if (strcmp(line, "ok") == 0) {
         queue_push(UI_EV_CONFIRM);
     } else if (strcmp(line, "cancel") == 0) {
@@ -81,3 +81,6 @@ void ui_basic_feed_line(const char *line) {
         queue_push(UI_EV_RECALIBRATE);
     }
 }
+
+// Nombre histórico (lo usa el banco de la Fase 3). Delega en el enganche común.
+void ui_basic_feed_line(const char *line) { ui_feed_line(line); }

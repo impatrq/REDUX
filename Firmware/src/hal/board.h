@@ -48,4 +48,30 @@
 #define PIN_KEYPAD_COL2 21u // Teclado columna 2   27    entrada con pull-up (Fase 9)
 #define PIN_KEYPAD_COL3 22u // Teclado columna 3   29    entrada con pull-up (Fase 9)
 
+// --- Alias para la línea UI (pantalla ST7735 + teclado 4x4 con LVGL) -----------
+// La UI (../UI/src: hal_spi, st7735, lv_port_disp, hal_keypad) usa sus propios nombres
+// BOARD_* para los mismos GPIO de arriba. Para que haya un único board.h (sin duplicar
+// números de pin) se alias acá a los PIN_* definitivos. Si un pin de la UI cambia, se
+// cambia su PIN_* de arriba y el alias lo sigue solo.
+#define BOARD_LCD_SPI_INDEX  1u              // ST7735 por SPI1 (los PIN_TFT_* son de SPI1)
+#define BOARD_PIN_LCD_SCK    PIN_TFT_SCK
+#define BOARD_PIN_LCD_MOSI   PIN_TFT_MOSI
+#define BOARD_PIN_LCD_DC     PIN_TFT_DC
+#define BOARD_PIN_LCD_CS     PIN_TFT_CS
+#define BOARD_PIN_LCD_RST    PIN_TFT_RST
+
+#define BOARD_KEYPAD_ROWS    4u
+#define BOARD_KEYPAD_COLS    4u
+#define BOARD_PIN_KEY_ROW1   PIN_KEYPAD_ROW1
+#define BOARD_PIN_KEY_ROW2   PIN_KEYPAD_ROW2
+#define BOARD_PIN_KEY_ROW3   PIN_KEYPAD_ROW3
+#define BOARD_PIN_KEY_ROW4   PIN_KEYPAD_ROW4
+#define BOARD_PIN_KEY_COL1   PIN_KEYPAD_COL1
+#define BOARD_PIN_KEY_COL2   PIN_KEYPAD_COL2
+#define BOARD_PIN_KEY_COL3   PIN_KEYPAD_COL3
+#define BOARD_PIN_KEY_COL4   PIN_KEYPAD_COL4
+
+#define BOARD_PIN_STATUS_LED PIN_LED
+#define BOARD_PIN_USER_BUTTON PIN_BUTTON
+
 #endif // REDUX_HAL_BOARD_H

@@ -4,7 +4,7 @@
 #ifndef REDUX_UI_BASIC_H
 #define REDUX_UI_BASIC_H
 
-#include "ui.h" // implementa este contrato (ui_init, ui_tick, ui_poll, ...)
+#include "fw_ui.h" // implementa este enganche (ui_init, ui_tick, ui_poll, ...)
 
 // Traduce una línea recibida por el monitor serie a un evento de ui:
 //   "ok"    -> UI_EV_CONFIRM

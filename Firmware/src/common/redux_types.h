@@ -3,24 +3,18 @@
 #ifndef REDUX_TYPES_H
 #define REDUX_TYPES_H
 
+// ui_event_t es parte del contrato único con la interfaz (app/ui.h). Vive allá para no
+// duplicarlo entre el firmware y la UI; se incluye acá para que las capas inferiores (p. ej.
+// sensors/rom_calib, app/supervisor) lo reciban por redux_types.h como hasta ahora. El
+// header es autocontenido (solo stdbool/stdint), así que incluirlo no crea dependencia de app.
+#include "app/ui.h" // ui_event_t
+
 // Sentido pedido o aplicado al motor.
 typedef enum {
     DIR_STOP = 0,
     DIR_FLEX = 1,
     DIR_EXT = -1,
 } direction_t;
-
-// Evento de la interfaz de usuario (ver app/ui.h). Vive acá, en common, para que
-// las capas inferiores (p. ej. sensors/rom_calib) lo reciban sin depender de app:
-// las dependencias solo bajan. La implementación concreta (ui_basic, y a futuro la
-// pantalla con teclado) traduce pulsador/serie/teclas a estos eventos.
-typedef enum {
-    UI_EV_NONE = 0,       // no hay evento pendiente
-    UI_EV_CONFIRM,        // el usuario confirma el paso actual
-    UI_EV_CANCEL,         // el usuario cancela la operación
-    UI_EV_RECALIBRATE,    // el usuario pide repetir la calibración
-    UI_EV_START_SESSION,  // el usuario inicia una sesión (comando "sesion", desde ST_IDLE)
-} ui_event_t;
 
 // Resultado de la lógica XOR de intención (ver control/intent).
 typedef enum {

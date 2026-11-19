@@ -14,7 +14,7 @@
 #include "hal_gpio.h"
 #include "hal_i2c.h"
 #include "hal_time.h"
-#include "ui_basic.h"
+#include "fw_ui.h"
 
 #define REDUX_FW_VERSION "0.6.0"
 
@@ -133,8 +133,8 @@ static void poll_serial(char *line, uint32_t *len) {
             diag_hang(); // no retorna
         }
 #endif
-        if (*len > 0u && !app_feed_sim(line) && !app_feed_session(line)) {
-            ui_basic_feed_line(line);
+        if (*len > 0u && !app_feed_sim(line) && !app_feed_session(line) && !app_feed_enc(line)) {
+            ui_feed_line(line);
         }
         *len = 0u;
     } else if (*len < APP_CMD_LINE_MAX - 1u) {
@@ -152,7 +152,7 @@ int main(void) {
     hal_time_init();     // tick de 1 ms
     hal_adc_init();      // EMG por ADC (con EMG_SOURCE_ADC)
     hal_i2c_init();      // bus del AS5600
-    ui_init();           // pulsador + LED + serie
+    fw_ui_init();        // BASIC: pulsador + LED + serie; PANEL: lanza el core 1 (LVGL + panel)
     app_init();          // supervisor y módulos (no habilita el watchdog aún)
 
     printf("REDUX firmware v%s\n", REDUX_FW_VERSION);
