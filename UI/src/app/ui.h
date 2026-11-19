@@ -13,7 +13,7 @@
  * Siempre incluir como "app/ui.h": el export de SquareLine tiene su propio
  * ui.h y su propia ui_init(); por eso las funciones de acá usan el prefijo ui_app_.
  *
- * Versión del contrato: 1 (propuesta, pendiente de confirmar en S1/S2).
+ * Versión del contrato: 2 (propuesta, pendiente de confirmar en S1/S2).
  */
 #ifndef APP_UI_H
 #define APP_UI_H
@@ -21,15 +21,36 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define UI_CONTRACT_VERSION 1u
+#define UI_CONTRACT_VERSION 2u
+
+/** Largo máximo del ID de paciente (dígitos); el buffer reserva uno más para el '\0'. */
+#define UI_PATIENT_ID_MAX_LEN 15u
+
+/** Brazo que se calibra y asiste en la sesión. */
+typedef enum {
+    UI_ARM_LEFT = 0,    /**< Izquierdo */
+    UI_ARM_RIGHT        /**< Derecho */
+} ui_arm_t;
 
 /** Eventos que la UI envía al firmware. */
 typedef enum {
     UI_EV_NONE = 0,
-    UI_EV_CONFIRM,      /**< "Comenzar" en el menú, "Guardar" un extremo de calibración, "Reintentar" tras falla */
+    UI_EV_CONFIRM,      /**< "Guardar" un extremo de calibración, "Reintentar" tras falla */
     UI_EV_CANCEL,       /**< "Terminar" la sesión o cancelar la calibración (tecla D) */
-    UI_EV_RECALIBRATE   /**< Pedir nueva calibración del rango (hoy ningún botón lo envía) */
+    UI_EV_RECALIBRATE,  /**< Pedir nueva calibración del rango (hoy ningún botón lo envía) */
+    UI_EV_START_SESSION /**< v2: iniciar sesión con brazo + ID (payload en ui_event_msg_t). Al final del enum */
 } ui_event_t;
+
+/**
+ * Evento con datos (UI → firmware). Tamaño fijo, se copia por valor.
+ * Hoy solo lo usa UI_EV_START_SESSION (lleva brazo e ID); el resto de los eventos
+ * viajan como ui_event_t por ui_app_poll_event().
+ */
+typedef struct {
+    ui_event_t type;
+    ui_arm_t   arm;                                    /**< Válido solo en UI_EV_START_SESSION */
+    char       patient_id[UI_PATIENT_ID_MAX_LEN + 1u]; /**< Válido solo en START_SESSION; "" si está vacío */
+} ui_event_msg_t;
 
 /** Modo general que la UI debe mostrar. */
 typedef enum {
@@ -67,6 +88,8 @@ typedef struct {
     float       rom_deg;    /**< Rango calibrado, 0 si no hay calibración */
     uint32_t    faults;     /**< Máscara UI_FAULT_* */
     float       duty;       /**< Potencia aplicada 0.0–1.0 (solo para mostrar) */
+    uint32_t    rep_count;    /**< v2: repeticiones completadas en la sesión */
+    float       last_rom_deg; /**< v2: rango (grados) de la última repetición, 0 si todavía no hay */
 } ui_status_t;
 
 /** Inicializa la UI (en ui_panel: colas y arranque del core 1). Llamar desde el core 0. */
@@ -77,5 +100,20 @@ void ui_app_publish_status(const ui_status_t *status);
 
 /** Saca el próximo evento de la UI. Devuelve false si no hay. No bloquea. */
 bool ui_app_poll_event(ui_event_t *event);
+
+/**
+ * Publica la configuración de la sesión a iniciar (brazo + ID de paciente).
+ * Buffer de ÚLTIMO VALOR, no cola: el firmware lee el más reciente con
+ * ui_app_take_session() al sacar UI_EV_START_SESSION. La llama la UI (core 1).
+ * Protección del buffer (lado firmware): una critical_section de la Pico protege
+ * una copia única + un flag "sin leer"; el lock se sostiene solo durante el memcpy.
+ */
+void ui_app_publish_session(const ui_event_msg_t *msg);
+
+/**
+ * Toma la última sesión publicada. Devuelve true y copia en *out si hay una sin
+ * leer (y la marca leída); false si no hay novedad. La llama el firmware (core 0).
+ */
+bool ui_app_take_session(ui_event_msg_t *out);
 
 #endif /* APP_UI_H */

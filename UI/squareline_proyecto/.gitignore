@@ -1,0 +1,10 @@
+# Derivados y config local de SquareLine Studio (no se versionan).
+# Sí se versionan: Redux.spj, Redux.sll, Themes.slt, project.info, assets/, components/.
+Redux.slp
+backup/
+cache/
+
+# Fuentes generadas por SquareLine: el .c ya se versiona en el export (src/ui/squareline/fonts)
+# y el .bin es binario derivado. Se versionan el TTF fuente y el .fcfg (config para regenerar).
+assets/*.c
+assets/*.bin

@@ -14,8 +14,8 @@
 
 #include "app/ui.h"
 
-/** Recibe cada evento de la UI. Corre en el core 1, dentro de LVGL: no bloquear. */
-typedef void (*ui_panel_event_cb_t)(ui_event_t event);
+/** Recibe cada evento de la UI (con su payload). Corre en el core 1, dentro de LVGL: no bloquear. */
+typedef void (*ui_panel_event_cb_t)(const ui_event_msg_t *msg);
 
 /** Crea las pantallas del export, los grupos y el teclado. Después de lv_port_disp_init(). */
 void ui_panel_init(void);

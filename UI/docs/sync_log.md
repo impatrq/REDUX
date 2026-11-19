@@ -16,6 +16,29 @@ Formato:
 
 ---
 
+## 2026-11-19 · Paso B · Contrato v2 (brazo, ID, START_SESSION, reps/ROM) — sin sincronizar
+
+- Pedido:   nada aún; avisar en S2 junto con el contrato.
+- Recibido: nada.
+- Enviado:  nada aún.
+- Cambios:  contrato **v2** en `app/ui.h` (ver `ui_contract.md` §2–§4 y §12):
+  - `ui_arm_t` (izquierdo/derecho) e ID de paciente (`UI_PATIENT_ID_MAX_LEN` dígitos).
+  - `UI_EV_START_SESSION` **al final del enum** (no cambia los valores previos); payload
+    `ui_event_msg_t` (type + arm + patient_id).
+  - `ui_app_publish_session()` / `ui_app_take_session()`: la sesión viaja por un **buffer de
+    último valor** (no cola), que el firmware protege con una `critical_section`. Propuesta,
+    pendiente de aceptar.
+  - `ui_status_t` suma `rep_count` y `last_rom_deg`, que se muestran en marcha.
+  - Flujo: "Comenzar" → `ScreenBrazo` → elegir brazo manda `START_SESSION` con brazo + ID de
+    Perfil → `CALIB_ROM` (flexión, extensión) → `CALIB_EMG` (reposo, bíceps, tríceps) → `RUN`.
+    Cada "Guardar X" = `UI_EV_CONFIRM`; la UI muestra "Midiendo..." hasta que el estado avanza.
+  - Fuente `Font14Latin` (0x20-0xFF) como default; textos de la UI en UTF-8 (ñ y tildes). El
+    tilde de la red conectada pasó de `LV_SYMBOL_OK` a "»" (la fuente no trae FontAwesome).
+  - Proyecto de SquareLine versionado en `UI/squareline_proyecto/` (sin `Redux.slp`, `backup/`,
+    `cache/`, ni los `.c`/`.bin` generados en `assets/`).
+- Pendiente: las preguntas nuevas de "Preguntas abiertas para S2" (brazo, ID, buffer de sesión,
+  reps/ROM, y los 2 s de medición).
+
 ## 2026-11-19 · S1 · Wi-Fi probado en la placa y afinado
 
 - Pedido:   —
@@ -80,13 +103,26 @@ Formato:
 
 - [ ] Tabla de traducción `sys_state_t → ui_mode_t / ui_prompt_t` y `fault_t → UI_FAULT_*`.
 - [ ] ¿Qué corre hoy en el core 1 (telemetría)? ¿Cada cuánto y cuánto tarda?
-- [ ] ¿Acepta el modo nuevo `UI_MODE_IDLE` (listo, sin sesión) y que `UI_EV_CONFIRM` en IDLE inicie la sesión?
+- [ ] ¿Acepta el modo `UI_MODE_IDLE` (listo, sin sesión) y que la sesión arranque con
+      `UI_EV_START_SESSION` (v2; antes era `UI_EV_CONFIRM` en IDLE)?
+- [ ] **Brazo (v2):** ¿el firmware necesita saber el brazo (izquierdo/derecho) de la sesión?
+      Llega en `ui_event_msg_t.arm` con `START_SESSION`.
+- [ ] **Buffer de sesión (v2):** ¿acepta `ui_app_publish_session()`/`ui_app_take_session()` con
+      buffer de último valor + `critical_section`, en vez de meter brazo + ID en la cola de eventos?
 - [ ] ~~Al iniciar la sesión sin rango calibrado, ¿pasa primero por `CALIB_ROM`?~~ Rediseño 03/11:
       cada sesión arranca con `CALIB_ROM`. ¿Le sirve al firmware calibrar el rango en cada sesión?
-- [ ] ¿La calibración EMG sigue en el flujo? Si sigue, ¿va antes o después de `CALIB_ROM`, y cada
-      paso termina con "Guardar" (`UI_EV_CONFIRM`) o por tiempo? La UI la muestra en `ScreenBegin`.
-- [ ] ¿Qué pasa al guardar cada extremo? ¿El firmware toma el ángulo del encoder al recibir `UI_EV_CONFIRM`?
-- [ ] ID de usuario (Perfil): ¿lo usa el firmware? Si sí, hace falta un evento o campo nuevo en el contrato.
+- [ ] ¿La calibración EMG sigue en el flujo? La UI la recorre en `ScreenBegin` como CALIB_EMG
+      (reposo → bíceps → tríceps), después de CALIB_ROM (flexión → extensión). ¿Va en ese orden?
+- [ ] **Medición por paso (v2):** cada "Guardar X" manda `UI_EV_CONFIRM` y la UI muestra
+      "Midiendo..." hasta que el firmware **avanza el estado** (cambia `prompt` o `mode`). ¿Le sirve
+      ese contrato (la UI no usa timeout propio; el firmware marca el fin moviendo el estado)?
+      ¿Cuánto dura la medición? (en el lab se simulan 2 s.)
+- [ ] ¿Qué pasa al guardar cada paso? ¿El firmware toma el ángulo del encoder / la señal EMG al
+      recibir `UI_EV_CONFIRM`?
+- [ ] **ID de paciente (v2):** llega en `ui_event_msg_t.patient_id` con `START_SESSION` (dígitos,
+      `UI_PATIENT_ID_MAX_LEN` máx.). ¿Lo usa el firmware? ¿Alcanza el largo?
+- [ ] **reps/ROM (v2):** ¿qué cuenta como repetición (`rep_count`) y qué es `last_rom_deg` (ROM de
+      la última repetición, en grados)? ¿El firmware los publica en `ui_status_t` a ~20 Hz?
 - [ ] Fin de sesión ("Enviando datos..."): ¿qué datos se envían, adónde, y cómo avisa el firmware
       que terminó? Hoy la UI muestra el texto por tiempo (5 s).
 - [ ] `UI_EV_RECALIBRATE` quedó sin uso: ¿se mantiene en el contrato o se quita?

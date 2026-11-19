@@ -14,6 +14,7 @@
 #include "ui/ui_panel.h"
 
 #define LAB_BOOT_MS            2000u
+#define LAB_MEASURE_MS         2000u    /* Lo que "tarda" el firmware en medir un paso de calibración */
 #define LAB_RUN_FAULT_MS       15000u   /* Marcha antes de la falla simulada */
 #define LAB_ROM_DEG            120.0f   /* Rango "medido" en la calibración falsa */
 #define LAB_ANGLE_STEP_DEG     3.0f     /* Por cada UI_STATUS_PERIOD_MS en marcha */
@@ -29,16 +30,36 @@ static const char *const s_mode_names[] = {
 };
 static const char *const s_event_names[] = {
     [UI_EV_NONE] = "NONE", [UI_EV_CONFIRM] = "CONFIRM", [UI_EV_CANCEL] = "CANCEL",
-    [UI_EV_RECALIBRATE] = "RECALIBRATE",
+    [UI_EV_RECALIBRATE] = "RECALIBRATE", [UI_EV_START_SESSION] = "START_SESSION",
+};
+static const char *const s_arm_names[] = {
+    [UI_ARM_LEFT] = "izquierdo", [UI_ARM_RIGHT] = "derecho",
 };
 
 static ui_status_t s_status = {
     .mode = UI_MODE_BOOT, .prompt = UI_PROMPT_NONE, .angle_deg = 0.0f,
     .rom_deg = LAB_ROM_DEG, .faults = UI_FAULT_NONE, .duty = 0.0f,
+    .rep_count = 0u, .last_rom_deg = 0.0f,
 };
 static uint32_t s_mode_start_ms = 0u;
 static float s_angle_dir = 1.0f;     /* +1 extiende, -1 flexiona */
 static uint32_t s_next_fault = 0u;   /* Índice en s_lab_faults */
+
+/* Medición de un paso de calibración: tras un CONFIRM, el firmware falso "mide" LAB_MEASURE_MS
+ * antes de avanzar al paso recordado (así la UI muestra "Midiendo..."). */
+static bool s_lab_measuring = false;
+static uint32_t s_measure_start_ms = 0u;
+static ui_mode_t s_next_mode = UI_MODE_BOOT;
+static ui_prompt_t s_next_prompt = UI_PROMPT_NONE;
+
+static void lab_begin_measure(ui_mode_t next_mode, ui_prompt_t next_prompt)
+{
+    s_lab_measuring = true;
+    s_measure_start_ms = lv_tick_get();
+    s_next_mode = next_mode;
+    s_next_prompt = next_prompt;
+    printf("UI | midiendo 2 s (el guardado del paso lo hace el firmware)\n");
+}
 
 static void lab_set_mode(ui_mode_t mode, ui_prompt_t prompt)
 {
@@ -49,29 +70,49 @@ static void lab_set_mode(ui_mode_t mode, ui_prompt_t prompt)
 }
 
 /** Lo que haría el firmware con cada evento de la UI. */
-static void lab_on_event(ui_event_t event)
+static void lab_on_event(const ui_event_msg_t *msg)
 {
+    const ui_event_t event = msg->type;
     printf("UI | evento UI_EV_%s\n", s_event_names[event]);
 
     switch (s_status.mode) {
     case UI_MODE_IDLE:
-        if (event == UI_EV_CONFIRM) {
+        /* START_SESSION (pantalla de brazo, post-export) o CONFIRM (botón Comenzar actual). */
+        if ((event == UI_EV_START_SESSION) || (event == UI_EV_CONFIRM)) {
+            if (event == UI_EV_START_SESSION) {
+                printf("UI | sesion: brazo %s, ID \"%s\"\n", s_arm_names[msg->arm], msg->patient_id);
+            }
+            s_status.rep_count = 0u;
+            s_status.last_rom_deg = 0.0f;
             lab_set_mode(UI_MODE_CALIB_ROM, UI_PROMPT_GO_FLEX);
         }
         break;
 
     case UI_MODE_CALIB_ROM:
         if (event == UI_EV_CANCEL) {
+            s_lab_measuring = false;
             lab_set_mode(UI_MODE_IDLE, UI_PROMPT_NONE);
-        } else if (s_status.prompt == UI_PROMPT_GO_FLEX) {
-            printf("UI | flexion maxima (el guardado lo hace el firmware)\n");
-            lab_set_mode(UI_MODE_CALIB_ROM, UI_PROMPT_GO_EXT);
-        } else {
-            printf("UI | extension maxima (el guardado lo hace el firmware)\n");
-            s_status.rom_deg = LAB_ROM_DEG;
-            s_status.angle_deg = 0.0f;
-            s_angle_dir = 1.0f;
-            lab_set_mode(UI_MODE_RUN, UI_PROMPT_NONE);
+        } else if ((event == UI_EV_CONFIRM) && !s_lab_measuring) {
+            if (s_status.prompt == UI_PROMPT_GO_FLEX) {
+                lab_begin_measure(UI_MODE_CALIB_ROM, UI_PROMPT_GO_EXT);
+            } else {
+                lab_begin_measure(UI_MODE_CALIB_EMG, UI_PROMPT_RELAX);
+            }
+        }
+        break;
+
+    case UI_MODE_CALIB_EMG:
+        if (event == UI_EV_CANCEL) {
+            s_lab_measuring = false;
+            lab_set_mode(UI_MODE_IDLE, UI_PROMPT_NONE);
+        } else if ((event == UI_EV_CONFIRM) && !s_lab_measuring) {
+            if (s_status.prompt == UI_PROMPT_RELAX) {
+                lab_begin_measure(UI_MODE_CALIB_EMG, UI_PROMPT_CONTRACT_BICEPS);
+            } else if (s_status.prompt == UI_PROMPT_CONTRACT_BICEPS) {
+                lab_begin_measure(UI_MODE_CALIB_EMG, UI_PROMPT_CONTRACT_TRICEPS);
+            } else {
+                lab_begin_measure(UI_MODE_RUN, UI_PROMPT_NONE);
+            }
         }
         break;
 
@@ -105,6 +146,8 @@ static void lab_update_run(void)
     } else if (s_status.angle_deg <= 0.0f) {
         s_status.angle_deg = 0.0f;
         s_angle_dir = 1.0f;
+        s_status.rep_count++;                     /* Volver a flexión = repetición completa */
+        s_status.last_rom_deg = s_status.rom_deg; /* ROM de la última rep (constante en el sim) */
     } else {
         /* Sigue en la misma dirección. */
     }
@@ -122,7 +165,17 @@ static void lab_update_run(void)
 static void lab_status_cb(lv_timer_t *timer)
 {
     (void)timer;
-    if ((s_status.mode == UI_MODE_BOOT) && (lv_tick_elaps(s_mode_start_ms) >= LAB_BOOT_MS)) {
+    if (s_lab_measuring) {
+        if (lv_tick_elaps(s_measure_start_ms) >= LAB_MEASURE_MS) {
+            s_lab_measuring = false;
+            if (s_next_mode == UI_MODE_RUN) {
+                s_status.rom_deg = LAB_ROM_DEG;
+                s_status.angle_deg = 0.0f;
+                s_angle_dir = 1.0f;
+            }
+            lab_set_mode(s_next_mode, s_next_prompt);
+        }
+    } else if ((s_status.mode == UI_MODE_BOOT) && (lv_tick_elaps(s_mode_start_ms) >= LAB_BOOT_MS)) {
         lab_set_mode(UI_MODE_IDLE, UI_PROMPT_NONE);
     } else if (s_status.mode == UI_MODE_RUN) {
         lab_update_run();

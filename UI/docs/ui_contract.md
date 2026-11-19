@@ -1,6 +1,9 @@
 # REDUX · Contrato UI ↔ firmware
 
-Estado: **propuesta v1**, pendiente de confirmar con el compañero (S1 y S2, ver `PLAN_UI.md` §5).
+Estado: **propuesta v2**, pendiente de confirmar con el compañero (S1 y S2, ver `PLAN_UI.md` §5).
+v2 agrega: brazo (`ui_arm_t`) e ID de paciente, el evento `UI_EV_START_SESSION` con su payload
+`ui_event_msg_t`, el buffer de sesión (`ui_app_publish_session`/`ui_app_take_session`) y los campos
+`rep_count` / `last_rom_deg` en `ui_status_t`.
 Archivo de código: `src/app/ui.h`. Si este documento y el `.h` difieren, se corrige uno de los
 dos en el mismo commit.
 
@@ -23,6 +26,8 @@ dos en el mismo commit.
 | `void ui_app_init(void)` | Firmware, al arrancar (core 0) | Crea las colas; en `ui_panel` arranca el core 1 |
 | `void ui_app_publish_status(const ui_status_t *s)` | Supervisor, ~20 Hz | No bloquea; si la cola está llena descarta el más viejo |
 | `bool ui_app_poll_event(ui_event_t *ev)` | Supervisor, en cada ciclo | No bloquea; `false` si no hay eventos |
+| `void ui_app_publish_session(const ui_event_msg_t *s)` | UI (core 1), al elegir el brazo | Buffer de **último valor** (no cola): guarda brazo + ID de la sesión |
+| `bool ui_app_take_session(ui_event_msg_t *out)` | Supervisor, al sacar `UI_EV_START_SESSION` | `true` y copia si hay una sesión sin leer; `false` si no hay novedad |
 
 ## 3. Eventos (UI → firmware)
 
@@ -31,9 +36,18 @@ dos en el mismo commit.
 | `UI_EV_CONFIRM` | Botones "Comenzar" (menú), "Guardar" (calibración) y "Reintentar" (falla), apretados con B | Confirmar extremo de calibración, rearmar tras falla; en `UI_MODE_IDLE`, iniciar la sesión |
 | `UI_EV_CANCEL` | Botón "Terminar" (marcha) o tecla D durante la calibración | Terminar la sesión, cancelar la calibración |
 | `UI_EV_RECALIBRATE` | Ninguno desde el rediseño del 03/11/2026 (la calibración va dentro de cada sesión) | Pedir nueva calibración del rango; se mantiene en el enum |
+| `UI_EV_START_SESSION` | v2: botones de la pantalla de brazo (`ScreenBrazo`) | Iniciar la sesión; **al final del enum**, no cambia los valores previos |
 
 Los eventos los genera `ui_panel` según la pantalla, no la tecla cruda: en un menú, B aprieta
 el botón con foco; donde el firmware espera una confirmación, B envía `UI_EV_CONFIRM`.
+
+**Payload de `UI_EV_START_SESSION` (`ui_event_msg_t`):** `{ type, arm, patient_id }`. El brazo es
+`ui_arm_t` (`UI_ARM_LEFT`/`UI_ARM_RIGHT`); el ID es `char[UI_PATIENT_ID_MAX_LEN + 1]` (dígitos, `""`
+si está vacío). No viaja por la cola de eventos: la UI lo publica con `ui_app_publish_session()` en un
+**buffer de último valor**, y el firmware lo lee con `ui_app_take_session()` al sacar `UI_EV_START_SESSION`.
+Protección del buffer (lado firmware): una `critical_section_t` de la Pico protege una copia única más
+un flag "sin leer"; el lock se sostiene solo durante el `memcpy` (µs), así no perturba el lazo de 1 ms.
+El header sigue autocontenido (solo `<stdint.h>`/`<stdbool.h>`); el lock vive en el `.c`.
 
 ## 4. Mensaje de estado (firmware → UI): `ui_status_t`
 
@@ -45,8 +59,10 @@ el botón con foco; donde el firmware espera una confirmación, B envía `UI_EV_
 | `rom_deg` | `float` | Rango calibrado (0 si no hay calibración) |
 | `faults` | `uint32_t` | Máscara: `UI_FAULT_ENCODER`, `_OVERCURRENT`, `_ANGLE_LIMIT`, `_EMG`, `_OTHER` |
 | `duty` | `float` | Potencia aplicada 0.0–1.0 (solo para mostrar) |
+| `rep_count` | `uint32_t` | v2: repeticiones completadas en la sesión (se muestra en marcha) |
+| `last_rom_deg` | `float` | v2: rango (grados) de la última repetición, 0 si todavía no hay |
 
-Tamaño actual: 24 bytes. Frecuencia: ~20 Hz. La UI muestra siempre el último mensaje.
+Tamaño actual: 32 bytes. Frecuencia: ~20 Hz. La UI muestra siempre el último mensaje.
 
 ## 5. Traducción firmware → contrato (la completa el compañero en S2)
 
@@ -88,6 +104,10 @@ Revisado el 05/10/2026 sobre `C:\Users\ignac\OneDrive\Documentos\ReduxCode\Redux
 Actualizado el 02/11/2026 con el re-export de ese día (proyecto v6): correcciones 1 y 2 hechas.
 Actualizado el 02/11/2026 (proyecto v12, export 15:53) con las pantallas de U5. Desde este export,
 la carpeta de export es `C:\Users\ignac\OneDrive\Documentos\Squareline\`.
+Actualizado el **2026-11-19 (v2)**: el proyecto de SquareLine vive en `UI/squareline_proyecto/`
+(export a `src/ui/squareline`). Se agregó `ScreenBrazo` (Izquierdo/Derecho/Volver), los labels
+`LblReps`/`LblRom` en `ScreenMarcha`, "Comenzar" navega a `ScreenBrazo`, y la fuente **Font14Latin**
+(Montserrat 14, bpp 4, rango 0x20-0xFF) como default del tema (`LV_FONT_DEFAULT` en `lv_conf.h`).
 
 | Qué | Valor | Estado |
 | --- | --- | --- |
@@ -98,25 +118,27 @@ la carpeta de export es `C:\Users\ignac\OneDrive\Documentos\Squareline\`.
 | Plantilla | VS Code with SDL | ✅ Indistinto |
 | Archivos | `ui.c/.h`, `ui_helpers.*`, `ui_events.h`, `screens/` (7), `components/` (vacío), `images/` (1) | ✅ No copiar `images/ui_img_logotipo_png.c`: es la imagen vieja (1,3 MB) y no está en `filelist.txt` |
 | `ui_events.c` con lógica | No existe | ✅ |
-| Fuentes | Solo la de defecto (Montserrat 14) | ✅ |
+| Fuentes | `Font14Latin` (Montserrat 14, bpp 4, rango 0x20-0xFF) como default del tema | ✅ v2 (2026-11-19); antes solo Montserrat 14 ASCII |
 | Imágenes | `Logotipo_nuevo.png` 120×68 ARGB, sin zoom (~24 KB) | ✅ Corregido el 02/11/2026 (antes: 400×225 con zoom, ~270 KB) |
 | Fondos | `Fondo` … `Fondo6` de 128×128, centrados | ✅ |
-| Pantallas | `Inicio`, `Main` (Ajustes/Comenzar/Perfil), `SettingScreen` (Recalibrar/Volver), `ScreenRango`, `ScreenEMG`, `ScreenMarcha`, `ScreenFalla` | ✅ Cubren las 5 de U5 |
-| Eventos de SquareLine | `Inicio`: solo fade del logo. `Main` → Ajustes y `SettingScreen` → Volver cambian de pantalla | ✅ `Inicio` ya no pasa sola a `Main` |
+| Pantallas | `Inicio`, `Main` (Ajustes/Comenzar/Perfil), `ScreenBrazo`, `SettingScreen` (Wifi/Volver), `WifiScreen`, `ScreenPerfil`, `ScreenBegin`, `ScreenMarcha`, `ScreenEnding`, `ScreenFalla` | ✅ v2 |
+| Eventos de SquareLine | `Inicio`: fade del logo. Cambian de pantalla: `Main`→Ajustes/`ScreenBrazo`, `SettingScreen`→Wifi/Volver, `ScreenBrazo`→Volver(Main). Los botones de brazo no navegan (lo hace `ui_panel`) | ✅ |
 | Etiquetas con texto variable | 120 px de ancho, wrap (modo por defecto de LVGL) | ✅ |
 
-Widgets que usa `ui_panel` (U5):
+Widgets que usa `ui_panel` (v2):
 
 | Pantalla | Widgets |
 | --- | --- |
-| `Inicio` | `ui_logo` |
-| `SettingScreen` | `ui_RecalButton`, `ui_BackButton` |
-| `ScreenRango` | `ui_Lblfuncion`, `ui_Lblrango` |
-| `ScreenEMG` | `ui_LblInstruccion` |
-| `ScreenMarcha` | `ui_Lblangulo`, `ui_BarRango`, `ui_LblEstado` |
-| `ScreenFalla` | `ui_LblFalla`, `ui_LblRearm` |
-
-Pendiente de diseño (no bloquea): `RecalText` dice "Reclaibrar"; etiquetas sin centrar el texto.
+| `Inicio` | `ui_logo` (la pantalla va al grupo) |
+| `Main` | `ui_SettignsButton`, `ui_BeginButton`, `ui_ProfileButton`, `ui_MainSelec` |
+| `ScreenBrazo` | `ui_LeftArmButton`, `ui_RightArmButton`, `ui_BackButtonBrazo`, `ui_BrazoSelec` |
+| `SettingScreen` | `ui_WifiButton`, `ui_BackButton`, `ui_SettingSelect` |
+| `WifiScreen` | `ui_BackButton1`, `ui_LblRedes`, `ui_SettingSelect1` (la lista de redes se crea por código) |
+| `ScreenPerfil` | `ui_TextArea1`, `ui_BackButtonID`, `ui_SettingSelect5` |
+| `ScreenBegin` | `ui_LblInstruccion`, `ui_SaveButton`, `ui_RecalText2` (texto del botón), `ui_SettingSelect2` |
+| `ScreenMarcha` | `ui_Lblangulo`, `ui_BarRango`, `ui_LblEstado`, `ui_LblReps`, `ui_LblRom`, `ui_RetryButton2` (Terminar) |
+| `ScreenEnding` | `ui_LblEnvio`, `ui_BackButton2` |
+| `ScreenFalla` | `ui_LblFalla`, `ui_RetryButton` |
 
 Correcciones de SquareLine terminadas. En cada re-export, reemplazar
 `src/ui/squareline/` completo y actualizar esta tabla.
@@ -198,17 +220,21 @@ Estado: **verificado en el hardware el 02/11/2026** (navegación, aceptar y volv
 
 ---
 
-## 12. Pantallas y flujo (rediseño del 03/11/2026)
+## 12. Pantallas y flujo (v2 del 2026-11-19; rediseño previo del 03/11/2026)
 
 Módulo: `src/ui/ui_panel.c`. Prueba: `src/lab/lab_screens_test.c` (firmware falso mínimo, sin colas).
-Estado: **verificado en el hardware el 03/11/2026** (flujo completo con el teclado); falta
-confirmar el borrado con `*` en Perfil. Reemplaza el flujo de U5 (02/11/2026), que
-tenía `ScreenRango`, `ScreenEMG` y "Recalibrar" en Ajustes.
+Estado: el flujo base (BOOT/IDLE/calibración/marcha/falla con teclado) está **verificado en el
+hardware el 03/11/2026**. Lo nuevo de v2 —pantalla de brazo, calibración paso a paso con
+"Midiendo..." y reps/ROM en marcha— **está pendiente de verificar en la placa**.
 
 ```text
 BOOT (Inicio, fade del logo) --fin del arranque--> IDLE (Main)
 IDLE: Main > Perfil / Ajustes (> Wifi): la UI navega sola, con las animaciones del export
-IDLE: "Comenzar" (UI_EV_CONFIRM) --> CALIB_ROM: GO_FLEX --Guardar--> GO_EXT --Guardar--> RUN
+IDLE: "Comenzar" --> ScreenBrazo: Izquierdo / Derecho
+  --(UI_EV_START_SESSION con brazo + ID de Perfil)--> CALIB_ROM
+  CALIB_ROM: GO_FLEX --"Guardar flexión"--> GO_EXT --"Guardar extensión"-->
+  CALIB_EMG: RELAX --"Guardar reposo"--> BICEPS --"Guardar bíceps"--> TRICEPS --"Guardar tríceps"--> RUN
+  (cada "Guardar X" = UI_EV_CONFIRM; la pantalla muestra "Midiendo..." hasta que el estado avanza)
 RUN: "Terminar" --> la UI pasa a ScreenEnding y envía UI_EV_CANCEL; el firmware vuelve a IDLE
 cualquier modo --falla--> FAULT: "Reintentar" (UI_EV_CONFIRM) --> IDLE (Main)
 ```
@@ -216,16 +242,24 @@ cualquier modo --falla--> FAULT: "Reintentar" (UI_EV_CONFIRM) --> IDLE (Main)
 | `mode` | Pantalla | Qué muestra | B | D |
 | --- | --- | --- | --- | --- |
 | `BOOT` | `Inicio` | Logo | — | — |
-| `IDLE` | `Main`, `SettingScreen`, `WifiScreen`, `ScreenPerfil`, `ScreenEnding` | Menú y fin de sesión (la UI navega sola entre ellas) | Botón con foco | Volver, donde lo hay |
-| `CALIB_ROM` | `ScreenBegin` | `LblInstruccion`: "Flexiona lo mas posible" / "Extiende lo mas posible" | Guardar = `CONFIRM` | `CANCEL` |
-| `CALIB_EMG` | `ScreenBegin` | `LblInstruccion`: relaja el brazo / contrae el bíceps / el tríceps | Guardar = `CONFIRM` | `CANCEL` |
-| `RUN` | `ScreenMarcha` | `Lblangulo`: "N grados"; `LblEstado`: "Potencia P%"; `BarRango`: P de 0 a 100 | Terminar | Terminar |
+| `IDLE` | `Main`, `ScreenBrazo`, `SettingScreen`, `WifiScreen`, `ScreenPerfil`, `ScreenEnding` | Menú y fin de sesión (la UI navega sola entre ellas); "Comenzar" lleva a `ScreenBrazo` | Botón con foco (en Brazo: `START_SESSION`) | Volver, donde lo hay |
+| `CALIB_ROM` | `ScreenBegin` | `LblInstruccion`: "Flexiona lo más posible" / "Extiende lo más posible"; botón "Guardar flexión/extensión" | Guardar = `CONFIRM` → "Midiendo..." | `CANCEL` |
+| `CALIB_EMG` | `ScreenBegin` | `LblInstruccion`: "Relaja el brazo" / "Contrae el bíceps" / "Contrae el tríceps"; botón "Guardar reposo/bíceps/tríceps" | Guardar = `CONFIRM` → "Midiendo..." | `CANCEL` |
+| `RUN` | `ScreenMarcha` | `Lblangulo`: "N grados"; `LblEstado`: "Potencia P%"; `BarRango`: P de 0 a 100; `LblReps`: "N reps"; `LblRom`: "ROM N°" | Terminar | Terminar |
 | `FAULT` | `ScreenFalla` | Falla de mayor prioridad: sobrecorriente, encoder, fuera de rango, EMG, otra | Reintentar = `CONFIRM` | — |
 
+- `ScreenBrazo` (v2): "Izquierdo" / "Derecho" + "Volver". Los botones de brazo no cambian de
+  pantalla: `ui_panel` manda `UI_EV_START_SESSION` con el brazo y el ID escrito en Perfil
+  (`ui_TextArea1`, "" si está vacío); la pantalla pasa a `ScreenBegin` cuando el firmware entra en
+  `CALIB_ROM`. "Volver" (o D) regresa a `Main`.
+- Calibración paso a paso (v2): al apretar "Guardar", `ui_panel` emite `UI_EV_CONFIRM` y pone
+  "Midiendo..." en `LblInstruccion` hasta que el estado avanza (cambia el `prompt` o el `mode`).
+  El texto del botón (`RecalText2`) cambia con el paso.
+- `rep_count` / `last_rom_deg` (v2): `ui_status_t` los trae; la UI los muestra en `LblReps`/`LblRom`.
 - `ScreenEnding`: `LblEnvio` muestra "Enviando datos..." durante `UI_SEND_MSG_MS` (5 s) y luego
   "Enviados!". Por ahora no se envía nada: es solo el texto.
 - `ScreenPerfil`: el campo de ID (`TextArea1`) acepta solo `0`–`9`, sin límite de largo; `*` borra.
-  Arranca con el foco; A/C pasan a Volver. El ID todavía no sale de la UI.
+  Arranca con el foco; A/C pasan a Volver. El ID viaja al firmware en `START_SESSION` (`patient_id`).
 - La pantalla cambia solo cuando cambia `mode`; en `IDLE` se queda en la pantalla del menú en
   la que esté. Los textos se reescriben solo si cambian. `P` sale de `duty` redondeado, y el
   texto y la barra usan el mismo número.

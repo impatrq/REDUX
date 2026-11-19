@@ -7,9 +7,11 @@ SET(SOURCES screens/ui_Inicio.c
     screens/ui_ScreenPerfil.c
     screens/ui_ScreenEnding.c
     screens/ui_WifiScreen.c
+    screens/ui_ScreenBrazo.c
     ui.c
     components/ui_comp_hook.c
     ui_helpers.c
-    images/ui_img_logotipo_nuevo_png.c)
+    images/ui_img_logotipo_nuevo_png.c
+    fonts/ui_font_Font14Latin.c)
 
 add_library(ui ${SOURCES})

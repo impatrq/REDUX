@@ -49,8 +49,8 @@ typedef struct {
 /* Instrucciones de ScreenBegin; sin tildes (la fuente Montserrat 14 de LVGL es solo ASCII). */
 static const char *const s_rom_prompt_text[] = {
     [UI_PROMPT_NONE]             = "Calibrando rango",
-    [UI_PROMPT_GO_FLEX]          = "Flexiona lo mas posible",
-    [UI_PROMPT_GO_EXT]           = "Extiende lo mas posible",
+    [UI_PROMPT_GO_FLEX]          = "Flexiona lo más posible",
+    [UI_PROMPT_GO_EXT]           = "Extiende lo más posible",
     [UI_PROMPT_RELAX]            = "Calibrando rango",
     [UI_PROMPT_CONTRACT_BICEPS]  = "Calibrando rango",
     [UI_PROMPT_CONTRACT_TRICEPS] = "Calibrando rango",
@@ -60,8 +60,8 @@ static const char *const s_emg_prompt_text[] = {
     [UI_PROMPT_GO_FLEX]          = "Calibrando sensores",
     [UI_PROMPT_GO_EXT]           = "Calibrando sensores",
     [UI_PROMPT_RELAX]            = "Relaja el brazo",
-    [UI_PROMPT_CONTRACT_BICEPS]  = "Contrae el biceps",
-    [UI_PROMPT_CONTRACT_TRICEPS] = "Contrae el triceps",
+    [UI_PROMPT_CONTRACT_BICEPS]  = "Contrae el bíceps",
+    [UI_PROMPT_CONTRACT_TRICEPS] = "Contrae el tríceps",
 };
 #define UI_PANEL_PROMPT_COUNT    (sizeof(s_rom_prompt_text) / sizeof(s_rom_prompt_text[0]))
 
@@ -70,7 +70,7 @@ static const ui_panel_fault_text_t s_fault_text[] = {
     { UI_FAULT_OVERCURRENT, "Sobrecorriente en el motor" },
     { UI_FAULT_ENCODER,     "Falla del encoder" },
     { UI_FAULT_ANGLE_LIMIT, "Fuera del rango calibrado" },
-    { UI_FAULT_EMG,         "Senal EMG invalida" },
+    { UI_FAULT_EMG,         "Señal EMG inválida" },
     { UI_FAULT_OTHER,       "Falla del sistema" },
 };
 #define UI_PANEL_FAULT_COUNT     (sizeof(s_fault_text) / sizeof(s_fault_text[0]))
@@ -78,6 +78,7 @@ static const char s_fault_unknown_text[] = "Falla del sistema";
 
 static const char s_sending_text[] = "Enviando datos...";
 static const char s_sent_text[] = "Enviados!";
+static const char s_measuring_text[] = "Midiendo...";
 
 /* Título de Wifi (LblRedes) según el estado; cortos para que entren en 128 px. */
 static const char s_wifi_title_text[] = "Redes";
@@ -88,7 +89,7 @@ static const char s_wifi_empty_text[] = "Sin redes";
 static const char s_wifi_scan_failed_text[] = "Error al buscar";
 static const char s_wifi_connecting_text[] = "Conectando...";
 static const char s_wifi_connected_text[] = "Conectado";
-static const char s_wifi_connect_failed_text[] = "Fallo conexion";
+static const char s_wifi_connect_failed_text[] = "Fallo conexión";
 static const char s_wifi_locked_text[] = "Requiere clave";
 
 static ui_panel_event_cb_t s_event_cb = NULL;
@@ -96,6 +97,13 @@ static bool s_has_mode = false;      /* false hasta el primer mensaje de estado 
 static ui_mode_t s_mode = UI_MODE_BOOT;
 static uint32_t s_last_press = 0u;   /* Última pulsación que generó un evento */
 static lv_timer_t *s_send_timer = NULL;  /* "Enviando datos..." en curso */
+
+/* Calibración: tras apretar "Guardar", la pantalla muestra "Midiendo..." hasta que el estado
+ * (modo o prompt) avance. Se recuerda qué estaba midiéndose para detectar el avance. */
+static bool s_measuring = false;
+static ui_mode_t s_measuring_mode = UI_MODE_BOOT;
+static ui_prompt_t s_measuring_prompt = UI_PROMPT_NONE;
+static ui_prompt_t s_shown_prompt = UI_PROMPT_NONE;  /* Último prompt mostrado en ScreenBegin */
 
 static lv_obj_t *s_wifi_list = NULL;                    /* Contenedor de los botones de redes */
 static hal_wifi_net_t s_wifi_nets[UI_WIFI_MAX_NETS];    /* Red de cada botón, en el mismo orden */
@@ -106,7 +114,8 @@ static uint32_t s_wifi_scan_gen = 0u;                   /* Última generación d
 static void ui_panel_emit(ui_event_t event)
 {
     if (s_event_cb != NULL) {
-        s_event_cb(event);
+        const ui_event_msg_t msg = { .type = event };  /* arm/patient_id solo en START_SESSION */
+        s_event_cb(&msg);
     }
 }
 
@@ -236,21 +245,14 @@ static void ui_panel_set_back_key(lv_obj_t *const buttons[], size_t count, lv_ob
 
 /* ---- Main y Ajustes ---- */
 
-static void ui_panel_begin_cb(lv_event_t *e)
-{
-    (void)e;
-    ui_panel_emit(UI_EV_CONFIRM);  /* El export ya pasa a ScreenBegin */
-}
-
 static void ui_panel_setup_menus(void)
 {
-    /* Main: de arriba a abajo; arranca en Comenzar. */
+    /* Main: de arriba a abajo; arranca en Comenzar. "Comenzar" navega a ScreenBrazo (evento del export). */
     lv_group_t *main_group = ui_panel_attach_group(ui_Main);
     ui_panel_add_button(main_group, ui_SettignsButton, ui_MainSelec);
     ui_panel_add_button(main_group, ui_BeginButton, ui_MainSelec);
     ui_panel_add_button(main_group, ui_ProfileButton, ui_MainSelec);
     lv_group_focus_obj(ui_BeginButton);
-    lv_obj_add_event_cb(ui_BeginButton, ui_panel_begin_cb, LV_EVENT_CLICKED, NULL);
 
     /* Ajustes: Wifi arriba, Volver abajo; arranca en Wifi. */
     lv_group_t *settings_group = ui_panel_attach_group(ui_SettingScreen);
@@ -263,14 +265,56 @@ static void ui_panel_setup_menus(void)
 
 }
 
+/* ---- Pantalla de brazo: elige izquierdo/derecho e inicia la sesión ---- */
+
+/** START_SESSION con el brazo elegido y el ID escrito en Perfil (ui_TextArea1); "" si está vacío. */
+static void ui_panel_start_session(ui_arm_t arm)
+{
+    if (s_event_cb == NULL) {
+        return;
+    }
+    ui_event_msg_t msg = { .type = UI_EV_START_SESSION, .arm = arm };
+    (void)snprintf(msg.patient_id, sizeof(msg.patient_id), "%s", lv_textarea_get_text(ui_TextArea1));
+    s_event_cb(&msg);
+}
+
+static void ui_panel_left_arm_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_panel_start_session(UI_ARM_LEFT);
+}
+
+static void ui_panel_right_arm_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_panel_start_session(UI_ARM_RIGHT);
+}
+
+static void ui_panel_setup_arm(void)
+{
+    /* Izquierdo arriba, Derecho, Volver abajo; arranca en Izquierdo. Los botones de brazo no
+     * cambian de pantalla: al apretarlos se manda START_SESSION y el modo del firmware carga Begin. */
+    lv_group_t *group = ui_panel_attach_group(ui_ScreenBrazo);
+    ui_panel_add_button(group, ui_LeftArmButton, ui_BrazoSelec);
+    ui_panel_add_button(group, ui_RightArmButton, ui_BrazoSelec);
+    ui_panel_add_button(group, ui_BackButtonBrazo, ui_BrazoSelec);
+    lv_group_focus_obj(ui_LeftArmButton);
+    lv_obj_add_event_cb(ui_LeftArmButton, ui_panel_left_arm_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_RightArmButton, ui_panel_right_arm_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *const arm_buttons[] = { ui_LeftArmButton, ui_RightArmButton, ui_BackButtonBrazo };
+    ui_panel_set_back_key(arm_buttons, sizeof(arm_buttons) / sizeof(arm_buttons[0]), ui_BackButtonBrazo);
+}
+
 /* ---- Wifi: lista de redes (hal_wifi, en el core 0, escanea y conecta) ---- */
 
 /** Texto del botón de una red: la conectada lleva un tilde adelante. */
 static void ui_panel_wifi_label_text(char *text, size_t len, const hal_wifi_net_t *net)
 {
     const bool connected = (strcmp(net->ssid, s_wifi_connected) == 0);
+    /* Marcador de la red conectada en Latin-1 ("»"): la fuente por defecto (Font14Latin,
+     * rango 0x20-0xFF) no trae los símbolos FontAwesome de LV_SYMBOL_*. */
     /* Precisión acotada al SSID: el nombre entra siempre en el buffer (y lo sabe el compilador). */
-    (void)snprintf(text, len, "%s%.*s", connected ? (LV_SYMBOL_OK " ") : "",
+    (void)snprintf(text, len, "%s%.*s", connected ? "» " : "",
                    (int)HAL_WIFI_SSID_MAX_LEN, net->ssid);
 }
 
@@ -302,6 +346,23 @@ static void ui_panel_wifi_net_cb(lv_event_t *e)
     }
 }
 
+/** Deja el label de una red en UNA sola línea con el modo dado (DOT recorta, SCROLL se desplaza). */
+static void ui_panel_wifi_set_label_line(lv_obj_t *label, lv_label_long_mode_t mode)
+{
+    lv_label_set_long_mode(label, mode);
+    lv_obj_set_width(label, lv_pct(100));  /* ancho fijo: set_long_mode puede volverlo a content */
+    lv_obj_set_height(label, lv_font_get_line_height(lv_obj_get_style_text_font(label, LV_PART_MAIN)));
+    lv_obj_align(label, LV_ALIGN_LEFT_MID, 0, 0);
+}
+
+/** La red con foco desplaza su nombre (SCROLL_CIRCULAR); las demás lo recortan con "..." (DOT). */
+static void ui_panel_wifi_focus_cb(lv_event_t *e)
+{
+    lv_obj_t *label = lv_obj_get_child(lv_event_get_target(e), 0);
+    const bool focused = (lv_event_get_code(e) == LV_EVENT_FOCUSED);
+    ui_panel_wifi_set_label_line(label, focused ? LV_LABEL_LONG_SCROLL_CIRCULAR : LV_LABEL_LONG_DOT);
+}
+
 static void ui_panel_wifi_add_net(lv_group_t *group, uint32_t index)
 {
     const hal_wifi_net_t *net = &s_wifi_nets[index];
@@ -319,9 +380,7 @@ static void ui_panel_wifi_add_net(lv_group_t *group, uint32_t index)
     lv_obj_set_style_border_width(button, UI_PANEL_WIFI_FOCUS_W_PX, LV_STATE_FOCUSED);
 
     lv_obj_t *label = lv_label_create(button);
-    lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
-    lv_obj_set_width(label, lv_pct(100));
-    lv_obj_align(label, LV_ALIGN_LEFT_MID, 0, 0);
+    ui_panel_wifi_set_label_line(label, LV_LABEL_LONG_DOT);  /* una sola línea (sin foco: recortada) */
     if (!net->open && !net->saved) {
         lv_obj_set_style_text_color(label, lv_color_hex(UI_PANEL_WIFI_LOCKED_TEXT), LV_PART_MAIN);
     }
@@ -332,6 +391,8 @@ static void ui_panel_wifi_add_net(lv_group_t *group, uint32_t index)
     lv_obj_add_event_cb(button, ui_panel_wifi_net_cb, LV_EVENT_CLICKED, (void *)(uintptr_t)index);
     lv_obj_add_event_cb(button, ui_panel_hide_selector_cb, LV_EVENT_FOCUSED, ui_SettingSelect1);
     lv_obj_add_event_cb(button, ui_panel_hide_selector_cb, LV_EVENT_DEFOCUSED, ui_SettingSelect1);
+    lv_obj_add_event_cb(button, ui_panel_wifi_focus_cb, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(button, ui_panel_wifi_focus_cb, LV_EVENT_DEFOCUSED, NULL);
     lv_obj_add_event_cb(button, ui_panel_back_key_cb, LV_EVENT_KEY, ui_BackButton1);
     lv_group_add_obj(group, button);
 }
@@ -447,6 +508,13 @@ static void ui_panel_setup_profile(void)
 static void ui_panel_save_cb(lv_event_t *e)
 {
     (void)e;
+    if (s_measuring) {
+        return;  /* Ya se está midiendo este paso: una sola confirmación */
+    }
+    s_measuring = true;
+    s_measuring_mode = s_mode;
+    s_measuring_prompt = s_shown_prompt;
+    ui_panel_set_text(ui_LblInstruccion, s_measuring_text);
     ui_panel_emit(UI_EV_CONFIRM);  /* El firmware guarda el extremo y pasa al paso siguiente */
 }
 
@@ -510,11 +578,45 @@ static void ui_panel_setup_session(void)
 
 /* ---- Contenido de cada pantalla ---- */
 
+/** Texto del botón "Guardar" según el paso de calibración. */
+static const char *ui_panel_save_label(ui_mode_t mode, ui_prompt_t prompt)
+{
+    if (mode == UI_MODE_CALIB_ROM) {
+        return (prompt == UI_PROMPT_GO_EXT) ? "Guardar extensión" : "Guardar flexión";
+    }
+    switch (prompt) {
+    case UI_PROMPT_CONTRACT_BICEPS:  return "Guardar bíceps";
+    case UI_PROMPT_CONTRACT_TRICEPS: return "Guardar tríceps";
+    case UI_PROMPT_RELAX:
+    default:                         return "Guardar reposo";
+    }
+}
+
+/**
+ * ScreenBegin: mientras se mide el paso recordado, deja "Midiendo..."; cuando el estado avanza
+ * (cambia modo o prompt) muestra la instrucción y el texto del botón del paso nuevo.
+ */
+static void ui_panel_update_calib(const ui_status_t *status, const char *const prompt_table[])
+{
+    if (s_measuring && (status->mode == s_measuring_mode) && (status->prompt == s_measuring_prompt)) {
+        return;
+    }
+    s_measuring = false;
+    s_shown_prompt = status->prompt;
+    ui_panel_set_text(ui_LblInstruccion, ui_panel_prompt_text(prompt_table, status->prompt));
+    ui_panel_set_text(ui_RecalText2, ui_panel_save_label(status->mode, status->prompt));
+}
+
 static void ui_panel_update_run(const ui_status_t *status)
 {
     char text[UI_PANEL_TEXT_LEN];
     (void)snprintf(text, sizeof(text), "%ld grados", (long)ui_panel_round(status->angle_deg));
     ui_panel_set_text(ui_Lblangulo, text);
+
+    (void)snprintf(text, sizeof(text), "%lu reps", (unsigned long)status->rep_count);
+    ui_panel_set_text(ui_LblReps, text);
+    (void)snprintf(text, sizeof(text), "ROM %ld°", (long)ui_panel_round(status->last_rom_deg));
+    ui_panel_set_text(ui_LblRom, text);
 
     /* El texto y la barra usan el mismo porcentaje entero. */
     int32_t percent = ui_panel_round(status->duty * UI_PANEL_PERCENT_FULL);
@@ -540,7 +642,7 @@ static void ui_panel_update_fault(const ui_status_t *status)
 static bool ui_panel_is_idle_screen(const lv_obj_t *screen)
 {
     return (screen == ui_Main) || (screen == ui_SettingScreen) || (screen == ui_WifiScreen) ||
-           (screen == ui_ScreenPerfil) || (screen == ui_ScreenEnding);
+           (screen == ui_ScreenPerfil) || (screen == ui_ScreenEnding) || (screen == ui_ScreenBrazo);
 }
 
 /** Pantalla de cada modo. En IDLE se queda donde está si es una pantalla del menú. */
@@ -571,6 +673,7 @@ void ui_panel_init(void)
     /* Inicio no tiene botones: la pantalla misma va al grupo. */
     lv_group_add_obj(ui_panel_attach_group(ui_Inicio), ui_Inicio);
     ui_panel_setup_menus();
+    ui_panel_setup_arm();
     ui_panel_setup_wifi();
     ui_panel_setup_profile();
     ui_panel_setup_session();
@@ -594,15 +697,12 @@ void ui_panel_show_status(const ui_status_t *status)
         }
         s_mode = status->mode;
         s_has_mode = true;
+        s_measuring = false;  /* Un cambio de modo cierra cualquier "Midiendo..." pendiente */
     }
 
     switch (status->mode) {
-    case UI_MODE_CALIB_ROM:
-        ui_panel_set_text(ui_LblInstruccion, ui_panel_prompt_text(s_rom_prompt_text, status->prompt));
-        break;
-    case UI_MODE_CALIB_EMG:
-        ui_panel_set_text(ui_LblInstruccion, ui_panel_prompt_text(s_emg_prompt_text, status->prompt));
-        break;
+    case UI_MODE_CALIB_ROM: ui_panel_update_calib(status, s_rom_prompt_text); break;
+    case UI_MODE_CALIB_EMG: ui_panel_update_calib(status, s_emg_prompt_text); break;
     case UI_MODE_RUN:   ui_panel_update_run(status);   break;
     case UI_MODE_FAULT: ui_panel_update_fault(status); break;
     case UI_MODE_BOOT:
