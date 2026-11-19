@@ -95,21 +95,23 @@ void ui_ScreenMarcha_screen_init(void)
     lv_label_set_text(ui_FinishButtton, "Terminar");
 
     ui_LblReps = lv_label_create(ui_ScreenMarcha);
-    lv_obj_set_width(ui_LblReps, 60);
+    lv_obj_set_width(ui_LblReps, 64);
     lv_obj_set_height(ui_LblReps, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_LblReps, -30);
+    lv_obj_set_x(ui_LblReps, -32);
     lv_obj_set_y(ui_LblReps, 2);
     lv_obj_set_align(ui_LblReps, LV_ALIGN_CENTER);
+    lv_label_set_long_mode(ui_LblReps, LV_LABEL_LONG_CLIP);
     lv_label_set_text(ui_LblReps, "0 reps");
     lv_obj_set_style_text_align(ui_LblReps, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_LblReps, &ui_font_Font14Latin, LV_PART_MAIN | LV_STATE_DEFAULT);
 
     ui_LblRom = lv_label_create(ui_ScreenMarcha);
-    lv_obj_set_width(ui_LblRom, 60);
+    lv_obj_set_width(ui_LblRom, 64);
     lv_obj_set_height(ui_LblRom, LV_SIZE_CONTENT);    /// 1
-    lv_obj_set_x(ui_LblRom, 30);
+    lv_obj_set_x(ui_LblRom, 32);
     lv_obj_set_y(ui_LblRom, 2);
     lv_obj_set_align(ui_LblRom, LV_ALIGN_CENTER);
+    lv_label_set_long_mode(ui_LblRom, LV_LABEL_LONG_CLIP);
     lv_label_set_text(ui_LblRom, "ROM 0°");
     lv_obj_set_style_text_align(ui_LblRom, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_font(ui_LblRom, &ui_font_Font14Latin, LV_PART_MAIN | LV_STATE_DEFAULT);
