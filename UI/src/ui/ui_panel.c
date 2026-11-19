@@ -346,6 +346,23 @@ static void ui_panel_wifi_net_cb(lv_event_t *e)
     }
 }
 
+/** Deja el label de una red en UNA sola línea con el modo dado (DOT recorta, SCROLL se desplaza). */
+static void ui_panel_wifi_set_label_line(lv_obj_t *label, lv_label_long_mode_t mode)
+{
+    lv_label_set_long_mode(label, mode);
+    lv_obj_set_width(label, lv_pct(100));  /* ancho fijo: set_long_mode puede volverlo a content */
+    lv_obj_set_height(label, lv_font_get_line_height(lv_obj_get_style_text_font(label, LV_PART_MAIN)));
+    lv_obj_align(label, LV_ALIGN_LEFT_MID, 0, 0);
+}
+
+/** La red con foco desplaza su nombre (SCROLL_CIRCULAR); las demás lo recortan con "..." (DOT). */
+static void ui_panel_wifi_focus_cb(lv_event_t *e)
+{
+    lv_obj_t *label = lv_obj_get_child(lv_event_get_target(e), 0);
+    const bool focused = (lv_event_get_code(e) == LV_EVENT_FOCUSED);
+    ui_panel_wifi_set_label_line(label, focused ? LV_LABEL_LONG_SCROLL_CIRCULAR : LV_LABEL_LONG_DOT);
+}
+
 static void ui_panel_wifi_add_net(lv_group_t *group, uint32_t index)
 {
     const hal_wifi_net_t *net = &s_wifi_nets[index];
@@ -363,9 +380,7 @@ static void ui_panel_wifi_add_net(lv_group_t *group, uint32_t index)
     lv_obj_set_style_border_width(button, UI_PANEL_WIFI_FOCUS_W_PX, LV_STATE_FOCUSED);
 
     lv_obj_t *label = lv_label_create(button);
-    lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
-    lv_obj_set_width(label, lv_pct(100));
-    lv_obj_align(label, LV_ALIGN_LEFT_MID, 0, 0);
+    ui_panel_wifi_set_label_line(label, LV_LABEL_LONG_DOT);  /* una sola línea (sin foco: recortada) */
     if (!net->open && !net->saved) {
         lv_obj_set_style_text_color(label, lv_color_hex(UI_PANEL_WIFI_LOCKED_TEXT), LV_PART_MAIN);
     }
@@ -376,6 +391,8 @@ static void ui_panel_wifi_add_net(lv_group_t *group, uint32_t index)
     lv_obj_add_event_cb(button, ui_panel_wifi_net_cb, LV_EVENT_CLICKED, (void *)(uintptr_t)index);
     lv_obj_add_event_cb(button, ui_panel_hide_selector_cb, LV_EVENT_FOCUSED, ui_SettingSelect1);
     lv_obj_add_event_cb(button, ui_panel_hide_selector_cb, LV_EVENT_DEFOCUSED, ui_SettingSelect1);
+    lv_obj_add_event_cb(button, ui_panel_wifi_focus_cb, LV_EVENT_FOCUSED, NULL);
+    lv_obj_add_event_cb(button, ui_panel_wifi_focus_cb, LV_EVENT_DEFOCUSED, NULL);
     lv_obj_add_event_cb(button, ui_panel_back_key_cb, LV_EVENT_KEY, ui_BackButton1);
     lv_group_add_obj(group, button);
 }
