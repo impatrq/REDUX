@@ -151,7 +151,6 @@ st7735_status_t st7735_init(void)
     hal_spi_init();
     st7735_init_out_pin(BOARD_PIN_LCD_DC, true);
     st7735_init_out_pin(BOARD_PIN_LCD_RST, true);
-    st7735_init_out_pin(BOARD_PIN_LCD_BL, false);
 
     st7735_hw_reset();
 
@@ -178,11 +177,6 @@ st7735_status_t st7735_init(void)
     }
     sleep_ms(ST7735_DISPON_WAIT_MS);
     return ST7735_OK;
-}
-
-void st7735_backlight_set(bool on)
-{
-    gpio_put(BOARD_PIN_LCD_BL, on);
 }
 
 static bool st7735_rect_valid(uint16_t x, uint16_t y, uint16_t w, uint16_t h)
