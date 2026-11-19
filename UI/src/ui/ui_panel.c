@@ -35,8 +35,9 @@
 #define UI_PANEL_WIFI_ITEM_GAP_PX    2
 #define UI_PANEL_WIFI_ITEM_PAD_PX    4         /* Margen del texto a los lados */
 #define UI_PANEL_WIFI_FOCUS_W_PX     2         /* Borde del botón con foco */
-#define UI_PANEL_WIFI_OPEN_COLOR     0x6140A1  /* Mismo violeta que los botones del diseño */
-#define UI_PANEL_WIFI_LOCKED_COLOR   0x4A4A4A  /* Redes con clave: gris */
+#define UI_PANEL_WIFI_OPEN_COLOR     0x6140A1  /* Abiertas: mismo violeta que los botones del diseño */
+#define UI_PANEL_WIFI_SAVED_COLOR    0x2E7D5B  /* Guardadas (clave en wifi_redes.h): verde */
+#define UI_PANEL_WIFI_LOCKED_COLOR   0x4A4A4A  /* Con clave y no guardadas: gris */
 #define UI_PANEL_WIFI_LOCKED_TEXT    0xA0A0A0
 #define UI_PANEL_WIFI_FOCUS_COLOR    0xFFFFFF
 
@@ -100,7 +101,7 @@ static lv_obj_t *s_wifi_list = NULL;                    /* Contenedor de los bot
 static hal_wifi_net_t s_wifi_nets[UI_WIFI_MAX_NETS];    /* Red de cada botón, en el mismo orden */
 static uint32_t s_wifi_net_count = 0u;
 static char s_wifi_connected[HAL_WIFI_SSID_MAX_LEN + 1u];  /* "" si no hay conexión */
-static hal_wifi_report_t s_wifi_report;                 /* Último reporte leído */
+static uint32_t s_wifi_scan_gen = 0u;                   /* Última generación de escaneo dibujada */
 
 static void ui_panel_emit(ui_event_t event)
 {
@@ -268,7 +269,9 @@ static void ui_panel_setup_menus(void)
 static void ui_panel_wifi_label_text(char *text, size_t len, const hal_wifi_net_t *net)
 {
     const bool connected = (strcmp(net->ssid, s_wifi_connected) == 0);
-    (void)snprintf(text, len, "%s%s", connected ? (LV_SYMBOL_OK " ") : "", net->ssid);
+    /* Precisión acotada al SSID: el nombre entra siempre en el buffer (y lo sabe el compilador). */
+    (void)snprintf(text, len, "%s%.*s", connected ? (LV_SYMBOL_OK " ") : "",
+                   (int)HAL_WIFI_SSID_MAX_LEN, net->ssid);
 }
 
 /** Reescribe los textos de los botones (cambió la red conectada). Botón i = red i. */
@@ -282,19 +285,20 @@ static void ui_panel_wifi_refresh_labels(void)
     }
 }
 
-/** B sobre una red: conecta si es abierta; si pide clave, solo avisa (no hay cómo escribirla). */
+/** B sobre una red: abiertas y guardadas conectan (la guardada con su clave); las que piden
+ *  clave y no están guardadas solo avisan (no hay cómo escribir la clave). */
 static void ui_panel_wifi_net_cb(lv_event_t *e)
 {
     const uint32_t index = (uint32_t)(uintptr_t)lv_event_get_user_data(e);
     if (index >= s_wifi_net_count) {
         return;
     }
-    if (!s_wifi_nets[index].open) {
-        ui_panel_set_text(ui_LblRedes, s_wifi_locked_text);
-    } else if (hal_wifi_request_connect(s_wifi_nets[index].ssid)) {
+    const hal_wifi_net_t *net = &s_wifi_nets[index];
+    if (net->open || net->saved) {
+        hal_wifi_request_connect(net->ssid);
         ui_panel_set_text(ui_LblRedes, s_wifi_connecting_text);
     } else {
-        /* Cola de pedidos llena: el usuario puede volver a apretar. */
+        ui_panel_set_text(ui_LblRedes, s_wifi_locked_text);
     }
 }
 
@@ -307,8 +311,9 @@ static void ui_panel_wifi_add_net(lv_group_t *group, uint32_t index)
     lv_obj_add_flag(button, LV_OBJ_FLAG_SCROLL_ON_FOCUS);
     lv_obj_set_style_pad_ver(button, 0, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(button, UI_PANEL_WIFI_ITEM_PAD_PX, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(button, lv_color_hex(net->open ? UI_PANEL_WIFI_OPEN_COLOR : UI_PANEL_WIFI_LOCKED_COLOR),
-                              LV_PART_MAIN);
+    const uint32_t bg_color = net->open    ? UI_PANEL_WIFI_OPEN_COLOR
+                            : (net->saved ? UI_PANEL_WIFI_SAVED_COLOR : UI_PANEL_WIFI_LOCKED_COLOR);
+    lv_obj_set_style_bg_color(button, lv_color_hex(bg_color), LV_PART_MAIN);
     lv_obj_set_style_outline_width(button, 0, LV_STATE_FOCUS_KEY);
     lv_obj_set_style_border_color(button, lv_color_hex(UI_PANEL_WIFI_FOCUS_COLOR), LV_STATE_FOCUSED);
     lv_obj_set_style_border_width(button, UI_PANEL_WIFI_FOCUS_W_PX, LV_STATE_FOCUSED);
@@ -317,7 +322,7 @@ static void ui_panel_wifi_add_net(lv_group_t *group, uint32_t index)
     lv_label_set_long_mode(label, LV_LABEL_LONG_DOT);
     lv_obj_set_width(label, lv_pct(100));
     lv_obj_align(label, LV_ALIGN_LEFT_MID, 0, 0);
-    if (!net->open) {
+    if (!net->open && !net->saved) {
         lv_obj_set_style_text_color(label, lv_color_hex(UI_PANEL_WIFI_LOCKED_TEXT), LV_PART_MAIN);
     }
     char text[UI_PANEL_TEXT_LEN];
@@ -336,14 +341,13 @@ static void ui_panel_wifi_add_net(lv_group_t *group, uint32_t index)
  * Las redes entran al grupo después de Volver; como el foco da la vuelta, A/C recorren
  * igual que en pantalla: redes de arriba a abajo y después Volver.
  */
-static void ui_panel_wifi_build_list(const hal_wifi_report_t *report)
+/** Rehace los botones con las redes ya copiadas en s_wifi_nets/s_wifi_net_count. */
+static void ui_panel_wifi_build_list(void)
 {
     lv_group_t *group = (lv_group_t *)lv_obj_get_user_data(ui_WifiScreen);
     lv_group_focus_obj(ui_BackButton1);  /* Que el foco no quede en un botón que se borra */
     lv_obj_clean(s_wifi_list);
 
-    s_wifi_net_count = (report->net_count < UI_WIFI_MAX_NETS) ? report->net_count : UI_WIFI_MAX_NETS;
-    memcpy(s_wifi_nets, report->nets, sizeof(s_wifi_nets));
     for (uint32_t i = 0u; i < s_wifi_net_count; i++) {
         ui_panel_wifi_add_net(group, i);
     }
@@ -352,13 +356,13 @@ static void ui_panel_wifi_build_list(const hal_wifi_report_t *report)
     }
 }
 
-static const char *ui_panel_wifi_title(const hal_wifi_report_t *report)
+static const char *ui_panel_wifi_title(hal_wifi_state_t state, const char *connected, uint32_t net_count)
 {
-    const char *ready_text = (report->connected_ssid[0] != '\0') ? s_wifi_connected_text : s_wifi_title_text;
-    switch (report->state) {
+    const char *ready_text = (connected[0] != '\0') ? s_wifi_connected_text : s_wifi_title_text;
+    switch (state) {
     case HAL_WIFI_STATE_OFF:            return s_wifi_off_text;
     case HAL_WIFI_STATE_SCANNING:       return s_wifi_scanning_text;
-    case HAL_WIFI_STATE_SCAN_DONE:      return (report->net_count == 0u) ? s_wifi_empty_text : ready_text;
+    case HAL_WIFI_STATE_SCAN_DONE:      return (net_count == 0u) ? s_wifi_empty_text : ready_text;
     case HAL_WIFI_STATE_SCAN_FAILED:    return s_wifi_scan_failed_text;
     case HAL_WIFI_STATE_CONNECTING:     return s_wifi_connecting_text;
     case HAL_WIFI_STATE_CONNECTED:      return s_wifi_connected_text;
@@ -368,29 +372,37 @@ static const char *ui_panel_wifi_title(const hal_wifi_report_t *report)
     }
 }
 
-/** Lee los reportes del Wi-Fi: título, lista nueva tras un escaneo y tilde de la red conectada. */
+/**
+ * Relee el estado del Wi-Fi (todo en el core 1): rehace la lista cuando hay un escaneo nuevo,
+ * actualiza el tilde de la red conectada y el título.
+ */
 static void ui_panel_wifi_report_cb(lv_timer_t *timer)
 {
     (void)timer;
-    while (hal_wifi_get_report(&s_wifi_report)) {
-        if (s_wifi_report.state == HAL_WIFI_STATE_SCAN_DONE) {
-            ui_panel_wifi_build_list(&s_wifi_report);
-        }
-        if (strcmp(s_wifi_report.connected_ssid, s_wifi_connected) != 0) {
-            (void)snprintf(s_wifi_connected, sizeof(s_wifi_connected), "%s", s_wifi_report.connected_ssid);
-            ui_panel_wifi_refresh_labels();
-        }
-        ui_panel_set_text(ui_LblRedes, ui_panel_wifi_title(&s_wifi_report));
+    const hal_wifi_state_t state = hal_wifi_get_state();
+
+    const uint32_t gen = hal_wifi_scan_generation();
+    if (gen != s_wifi_scan_gen) {
+        s_wifi_scan_gen = gen;
+        s_wifi_net_count = hal_wifi_get_nets(s_wifi_nets, UI_WIFI_MAX_NETS);
+        ui_panel_wifi_build_list();
     }
+
+    const char *connected = hal_wifi_connected_ssid();
+    if (strcmp(connected, s_wifi_connected) != 0) {
+        (void)snprintf(s_wifi_connected, sizeof(s_wifi_connected), "%s", connected);
+        ui_panel_wifi_refresh_labels();
+    }
+
+    ui_panel_set_text(ui_LblRedes, ui_panel_wifi_title(state, s_wifi_connected, s_wifi_net_count));
 }
 
 /** Cada vez que se entra a Wifi se busca de nuevo. */
 static void ui_panel_wifi_loaded_cb(lv_event_t *e)
 {
     (void)e;
-    if (hal_wifi_request_scan()) {
-        ui_panel_set_text(ui_LblRedes, s_wifi_scanning_text);
-    }
+    hal_wifi_request_scan();
+    ui_panel_set_text(ui_LblRedes, s_wifi_scanning_text);
 }
 
 static void ui_panel_setup_wifi(void)

@@ -1,9 +1,10 @@
 /**
  * @file ui_core1.h
- * @brief Bucle del core 1: LVGL y nada más.
+ * @brief Bucle del core 1: LVGL y el Wi-Fi (hal_wifi).
  *
- * Es el único lugar donde corre LVGL. El core 0 solo llama a ui_core1_start().
- * Desde U6 este bucle también atiende las colas del contrato (app/ui.h).
+ * Es el único lugar donde corre LVGL, y también donde se inicia y se atiende el Wi-Fi
+ * (así las interrupciones del CYW43 caen en el core 1). El core 0 solo llama a
+ * ui_core1_start(). Desde U6 este bucle también atiende las colas del contrato (app/ui.h).
  */
 #ifndef UI_CORE1_H
 #define UI_CORE1_H

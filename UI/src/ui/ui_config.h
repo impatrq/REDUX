@@ -64,14 +64,13 @@
 #define UI_SEND_MSG_MS               5000u     /* "Enviando datos..." en ScreenEnding */
 #define UI_PROFILE_ID_CHARS          "0123456789"  /* Lo único que acepta el ID de usuario */
 
-/* ---- Wi-Fi (hal_wifi en el core 0, pantalla Wifi en el core 1) ---- */
-#define UI_WIFI_MAX_NETS             8u        /* Redes que se muestran (abiertas primero) */
-#define UI_WIFI_POLL_MS              10u       /* Cada cuánto el core 0 llama a hal_wifi_poll() */
+/* ---- Wi-Fi (hal_wifi y pantalla Wifi, los dos en el core 1) ---- */
+#define UI_WIFI_MAX_NETS             8u        /* Redes que se muestran (conectables primero) */
 #define UI_WIFI_SCAN_TIMEOUT_MS      10000u    /* Un escaneo normal tarda ~3 s */
-#define UI_WIFI_CONNECT_TIMEOUT_MS   15000u    /* Asociación + DHCP */
-#define UI_WIFI_REQUEST_QUEUE_LEN    4u        /* Pedidos de la UI sin atender */
-#define UI_WIFI_REPORT_QUEUE_LEN     4u        /* Reportes sin leer; si se llena se pierde el más viejo */
-#define UI_WIFI_REPORT_CHECK_MS      100u      /* Cada cuánto la UI lee los reportes */
+#define UI_WIFI_CONNECT_TIMEOUT_MS   30000u    /* Asociación + DHCP (algunas redes tardan >15 s) */
+#define UI_WIFI_LINK_LOST_MS         5000u     /* El enlace debe seguir caído este tiempo para darlo por perdido */
+#define UI_WIFI_RECONNECT_MS         15000u    /* Reintento de autoconexión si no hay conexión */
+#define UI_WIFI_REPORT_CHECK_MS      100u      /* Cada cuánto la UI relee el estado del Wi-Fi */
 
 /* ---- Contrato con el firmware ---- */
 #define UI_STATUS_PERIOD_MS          50u       /* El firmware publica a ~20 Hz */
