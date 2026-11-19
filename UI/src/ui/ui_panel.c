@@ -237,21 +237,14 @@ static void ui_panel_set_back_key(lv_obj_t *const buttons[], size_t count, lv_ob
 
 /* ---- Main y Ajustes ---- */
 
-static void ui_panel_begin_cb(lv_event_t *e)
-{
-    (void)e;
-    ui_panel_emit(UI_EV_CONFIRM);  /* El export ya pasa a ScreenBegin */
-}
-
 static void ui_panel_setup_menus(void)
 {
-    /* Main: de arriba a abajo; arranca en Comenzar. */
+    /* Main: de arriba a abajo; arranca en Comenzar. "Comenzar" navega a ScreenBrazo (evento del export). */
     lv_group_t *main_group = ui_panel_attach_group(ui_Main);
     ui_panel_add_button(main_group, ui_SettignsButton, ui_MainSelec);
     ui_panel_add_button(main_group, ui_BeginButton, ui_MainSelec);
     ui_panel_add_button(main_group, ui_ProfileButton, ui_MainSelec);
     lv_group_focus_obj(ui_BeginButton);
-    lv_obj_add_event_cb(ui_BeginButton, ui_panel_begin_cb, LV_EVENT_CLICKED, NULL);
 
     /* Ajustes: Wifi arriba, Volver abajo; arranca en Wifi. */
     lv_group_t *settings_group = ui_panel_attach_group(ui_SettingScreen);
@@ -262,6 +255,46 @@ static void ui_panel_setup_menus(void)
     ui_panel_set_back_key(settings_buttons, sizeof(settings_buttons) / sizeof(settings_buttons[0]),
                           ui_BackButton);
 
+}
+
+/* ---- Pantalla de brazo: elige izquierdo/derecho e inicia la sesión ---- */
+
+/** START_SESSION con el brazo elegido y el ID escrito en Perfil (ui_TextArea1); "" si está vacío. */
+static void ui_panel_start_session(ui_arm_t arm)
+{
+    if (s_event_cb == NULL) {
+        return;
+    }
+    ui_event_msg_t msg = { .type = UI_EV_START_SESSION, .arm = arm };
+    (void)snprintf(msg.patient_id, sizeof(msg.patient_id), "%s", lv_textarea_get_text(ui_TextArea1));
+    s_event_cb(&msg);
+}
+
+static void ui_panel_left_arm_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_panel_start_session(UI_ARM_LEFT);
+}
+
+static void ui_panel_right_arm_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_panel_start_session(UI_ARM_RIGHT);
+}
+
+static void ui_panel_setup_arm(void)
+{
+    /* Izquierdo arriba, Derecho, Volver abajo; arranca en Izquierdo. Los botones de brazo no
+     * cambian de pantalla: al apretarlos se manda START_SESSION y el modo del firmware carga Begin. */
+    lv_group_t *group = ui_panel_attach_group(ui_ScreenBrazo);
+    ui_panel_add_button(group, ui_LeftArmButton, ui_BrazoSelec);
+    ui_panel_add_button(group, ui_RightArmButton, ui_BrazoSelec);
+    ui_panel_add_button(group, ui_BackButtonBrazo, ui_BrazoSelec);
+    lv_group_focus_obj(ui_LeftArmButton);
+    lv_obj_add_event_cb(ui_LeftArmButton, ui_panel_left_arm_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_add_event_cb(ui_RightArmButton, ui_panel_right_arm_cb, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *const arm_buttons[] = { ui_LeftArmButton, ui_RightArmButton, ui_BackButtonBrazo };
+    ui_panel_set_back_key(arm_buttons, sizeof(arm_buttons) / sizeof(arm_buttons[0]), ui_BackButtonBrazo);
 }
 
 /* ---- Wifi: lista de redes (hal_wifi, en el core 0, escanea y conecta) ---- */
@@ -541,7 +574,7 @@ static void ui_panel_update_fault(const ui_status_t *status)
 static bool ui_panel_is_idle_screen(const lv_obj_t *screen)
 {
     return (screen == ui_Main) || (screen == ui_SettingScreen) || (screen == ui_WifiScreen) ||
-           (screen == ui_ScreenPerfil) || (screen == ui_ScreenEnding);
+           (screen == ui_ScreenPerfil) || (screen == ui_ScreenEnding) || (screen == ui_ScreenBrazo);
 }
 
 /** Pantalla de cada modo. En IDLE se queda donde está si es una pantalla del menú. */
@@ -572,6 +605,7 @@ void ui_panel_init(void)
     /* Inicio no tiene botones: la pantalla misma va al grupo. */
     lv_group_add_obj(ui_panel_attach_group(ui_Inicio), ui_Inicio);
     ui_panel_setup_menus();
+    ui_panel_setup_arm();
     ui_panel_setup_wifi();
     ui_panel_setup_profile();
     ui_panel_setup_session();

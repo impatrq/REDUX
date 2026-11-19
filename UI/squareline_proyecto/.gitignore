@@ -3,3 +3,8 @@
 Redux.slp
 backup/
 cache/
+
+# Fuentes generadas por SquareLine: el .c ya se versiona en el export (src/ui/squareline/fonts)
+# y el .bin es binario derivado. Se versionan el TTF fuente y el .fcfg (config para regenerar).
+assets/*.c
+assets/*.bin
