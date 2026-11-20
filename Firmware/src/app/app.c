@@ -542,12 +542,32 @@ static void session_on_transition(sys_state_t prev, sys_state_t now, uint32_t no
             session_end(&g_session, now_ms, g_run_accum_ms, g_rom.rom_deg);
             const char *motivo = NULL;
             if (session_should_send(session_result(&g_session), &motivo)) {
-                session_tx_begin(&g_session);
-                ui_message("Sesion finalizada. Enviando resultado por USB...");
+                session_tx_begin(&g_session); // respaldo por USB (siempre, punto 5)
+                ui_message("Sesion finalizada. Enviando resultado...");
+#if REDUX_UI_PANEL
+                // Además, por Wi-Fi a la API (Paso C): se arma el cuerpo en el buffer compartido
+                // y lo envía el core 1. Si no entra o hay un envío anterior en curso, queda el
+                // respaldo por USB y la pantalla de fin avisa el motivo (nunca falla en silencio).
+                if (!ui_app_tx_busy()) {
+                    uint32_t cap = 0u;
+                    char *body = ui_app_tx_buffer(&cap);
+                    const size_t n = session_build_body(&g_session, body, cap);
+                    if (n > 0u) {
+                        ui_app_tx_commit((uint32_t)n, session_patient(&g_session));
+                    } else {
+                        ui_app_tx_skip("sesion muy larga, quedo en USB");
+                    }
+                } else {
+                    ui_app_tx_skip("envio anterior en curso, quedo en USB");
+                }
+#endif
             } else {
                 char buf[STATUS_LINE_MAX];
                 (void)snprintf(buf, sizeof(buf), "Sesion no guardada: %s", motivo);
                 ui_message(buf);
+#if REDUX_UI_PANEL
+                ui_app_tx_skip(motivo); // la pantalla de fin muestra por qué no se envió
+#endif
             }
         } else if (prev == ST_CALIB_ROM || prev == ST_CALIB_REST || prev == ST_CALIB_MVC) {
             // Cancelación durante la calibración: se abandona la sesión sin publicar.
