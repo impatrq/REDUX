@@ -26,6 +26,8 @@
 #define UI_PANEL_ROUND_HALF      0.5f
 #define UI_PANEL_ENDING_ANIM_MS  500u      /* Marcha -> ScreenEnding, igual que Main -> ScreenBegin */
 #define UI_PANEL_ONE_SHOT        1         /* Repeticiones de un timer que corre una sola vez */
+#define UI_PANEL_MODE_ANIM_MS    300u      /* FADE en los cambios de pantalla por modo del firmware */
+#define UI_PANEL_BOOT_MIN_MS     2000u     /* Inicio se muestra al menos esto antes de pasar a Main */
 
 /* Lista de redes de Wifi: entre el título (y = -50) y el selector de Volver (empieza en y = 81 px). */
 #define UI_PANEL_WIFI_LIST_W_PX      110
@@ -95,6 +97,7 @@ static const char s_wifi_locked_text[] = "Requiere clave";
 static ui_panel_event_cb_t s_event_cb = NULL;
 static bool s_has_mode = false;      /* false hasta el primer mensaje de estado */
 static ui_mode_t s_mode = UI_MODE_BOOT;
+static uint32_t s_boot_shown_ms = 0u; /* Tick en que se mostro Inicio (BOOT), para el minimo de 2 s */
 static uint32_t s_last_press = 0u;   /* Última pulsación que generó un evento */
 static lv_timer_t *s_send_timer = NULL;  /* "Enviando datos..." en curso */
 
@@ -681,6 +684,7 @@ void ui_panel_init(void)
     /* Inicio ya se cargó en ui_init(), antes de tener grupo. */
     lv_port_indev_set_group((lv_group_t *)lv_obj_get_user_data(lv_scr_act()));
     s_last_press = lv_port_indev_get_press_count();
+    s_boot_shown_ms = lv_tick_get(); /* Inicio queda a la vista desde acá (minimo UI_PANEL_BOOT_MIN_MS) */
 }
 
 void ui_panel_set_event_cb(ui_panel_event_cb_t cb)
@@ -690,6 +694,13 @@ void ui_panel_set_event_cb(ui_panel_event_cb_t cb)
 
 void ui_panel_show_status(const ui_status_t *status)
 {
+    /* Inicio (BOOT) se muestra al menos UI_PANEL_BOOT_MIN_MS antes de pasar a Main, aunque el
+     * firmware deje BOOT enseguida (el core 0 manda un CONFIRM inicial para autoarrancar). */
+    if ((s_mode == UI_MODE_BOOT) && (status->mode != UI_MODE_BOOT) &&
+        (lv_tick_elaps(s_boot_shown_ms) < UI_PANEL_BOOT_MIN_MS)) {
+        return;
+    }
+
     if (!s_has_mode || (status->mode != s_mode)) {
         lv_obj_t *screen = ui_panel_mode_screen(status->mode);
         if (screen != ui_panel_current_screen()) {
@@ -699,7 +710,8 @@ void ui_panel_show_status(const ui_status_t *status)
              * y el recuadro blanco parpadeaba rapido. Se borran los pulsos anteriores antes de
              * cargar, asi queda uno solo por pantalla y solo se re-arma al cambiar de modo. */
             (void)lv_anim_custom_del(NULL, _ui_anim_callback_set_opacity);
-            lv_scr_load(screen);
+            /* Cambio de pantalla por modo con un FADE suave (antes era de golpe). */
+            lv_scr_load_anim(screen, LV_SCR_LOAD_ANIM_FADE_ON, UI_PANEL_MODE_ANIM_MS, 0, false);
         }
         s_mode = status->mode;
         s_has_mode = true;
