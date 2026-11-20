@@ -19,6 +19,9 @@
 
 #include "as5600.h"
 #include "rom_calib.h"
+#if REDUX_ENC_SIM
+#include "enc_sim.h" // encoder simulado: reemplaza las lecturas del AS5600
+#endif
 
 #include "bts7960.h"
 
@@ -28,7 +31,7 @@
 #include "hal_time.h"
 #include "hal_wdt.h"
 
-#include "ui.h"
+#include "fw_ui.h"
 
 #include "emg.h"
 #include "emg_calib.h"
@@ -64,6 +67,9 @@ static char g_pending_arm = 'i';              // brazo del próximo inicio de se
 static bool g_enc_ok = false;                 // encoder OK en el último tick (para "sesion")
 static uint32_t g_run_accum_ms = 0u;          // ms acumulados en marcha (ST_RUN) de la sesión
 static uint32_t g_run_enter_ms = 0u;          // instante de la última entrada a ST_RUN
+#if REDUX_UI_PANEL
+static uint32_t g_last_ui_pub_ms = 0u;        // último ui_app_publish_status (cadencia ~20 Hz)
+#endif
 
 // --- Entradas de EMG de un tick ----------------------------------------------
 typedef struct {
@@ -580,10 +586,128 @@ static void stop_motor(void) {
 }
 
 // =============================================================================
+//  Inicio de sesión (compartido por el comando "sesion" y el panel).
+// =============================================================================
+// Valida estado/encoder y deja pedido el inicio de sesión (igual que "sesion <id> <i|d>").
+static void request_session(int32_t pac, char arm) {
+    if (g_sv.state != ST_IDLE) {
+        ui_message("La sesion se inicia desde el estado IDLE (listo).");
+        return;
+    }
+    if (session_tx_busy(&g_session)) {
+        ui_message("Enviando el resultado de la sesion anterior, espere.");
+        return;
+    }
+    if (!g_enc_ok) {
+        ui_message("Encoder no esta OK: no se puede iniciar la sesion.");
+        return;
+    }
+    g_pending_patient = pac;
+    g_pending_arm = (arm == 'd') ? 'd' : 'i';
+    g_pending_ev = UI_EV_START_SESSION;
+    if (pac == 0) {
+        ui_message("Paciente 0: la sesion funciona pero NO se va a guardar.");
+    }
+    ui_message("Iniciando sesion: calibracion.");
+}
+
+#if REDUX_UI_PANEL
+// =============================================================================
+//  Traducción del estado interno al contrato de la UI (app/ui.h), y publicación.
+// =============================================================================
+// ID de paciente (dígitos) a entero; "" => 0. Acota para no desbordar.
+static int32_t patient_id_to_int(const char *s) {
+    int32_t v = 0;
+    for (size_t i = 0u; (s[i] != '\0') && (i < UI_PATIENT_ID_MAX_LEN); ++i) {
+        if ((s[i] < '0') || (s[i] > '9')) {
+            break;
+        }
+        if (v > 99999999) {
+            break; // tope defensivo (el ID real es mucho más corto)
+        }
+        v = (v * 10) + (int32_t)(s[i] - '0');
+    }
+    return v;
+}
+
+// Estado del supervisor -> modo que muestra la UI.
+static ui_mode_t ui_map_mode(sys_state_t s) {
+    switch (s) {
+    case ST_CALIB_ROM:  return UI_MODE_CALIB_ROM;
+    case ST_CALIB_REST:
+    case ST_CALIB_MVC:  return UI_MODE_CALIB_EMG;
+    case ST_ARMING:
+    case ST_RUN:        return UI_MODE_RUN;
+    case ST_FAULT:      return UI_MODE_FAULT;
+    case ST_IDLE:       return UI_MODE_IDLE;
+    case ST_BOOT:
+    case ST_CHECK_ENC:
+    default:            return UI_MODE_BOOT;
+    }
+}
+
+// Paso de calibración actual -> indicación que muestra la UI.
+static ui_prompt_t ui_map_prompt(sys_state_t s) {
+    switch (s) {
+    case ST_CALIB_ROM:
+        if ((g_rom.phase == ROM_WAIT_EXT) || (g_rom.phase == ROM_SAMPLING_EXT)) {
+            return UI_PROMPT_GO_EXT;
+        }
+        return UI_PROMPT_GO_FLEX;
+    case ST_CALIB_REST:
+        return UI_PROMPT_RELAX;
+    case ST_CALIB_MVC:
+#if EMG_ANY_ADC
+        return ((g_mvc == MVC_T_WAIT) || (g_mvc == MVC_T_RUN)) ? UI_PROMPT_CONTRACT_TRICEPS
+                                                               : UI_PROMPT_CONTRACT_BICEPS;
+#else
+        return UI_PROMPT_CONTRACT_BICEPS;
+#endif
+    default:
+        return UI_PROMPT_NONE;
+    }
+}
+
+// Máscara fault_t del firmware -> máscara UI_FAULT_* del contrato.
+static uint32_t ui_map_faults(fault_t f) {
+    uint32_t m = UI_FAULT_NONE;
+    if ((f & FAULT_ENC_MASK) != 0u) {
+        m |= UI_FAULT_ENCODER; // I2C / imán / salto de ángulo
+    }
+    if ((f & FAULT_EMG_SAT) != 0u) {
+        m |= UI_FAULT_EMG;
+    }
+    if ((f & FAULT_OVERRUN) != 0u) {
+        m |= UI_FAULT_OTHER; // sobrepaso de ciclo o latido del core 1 perdido
+    }
+    return m;
+}
+
+// Arma ui_status_t desde el estado del ciclo y lo publica al core 1 (~20 Hz).
+static void publish_ui_status(void) {
+    ui_status_t st;
+    st.mode = ui_map_mode(g_out.state);
+    st.prompt = ui_map_prompt(g_out.state);
+    st.angle_deg = g_status.angle_deg;
+    st.rom_deg = rom_calib_is_ready(&g_rom) ? g_rom.rom_deg : 0.0f;
+    st.faults = ui_map_faults(g_out.faults);
+    // Potencia 0..1 para la UI: el duty aplicado normalizado por el techo de esta build
+    // (DUTY_CEIL), así "100%" es la asistencia máxima permitida (misma convención que rep_stats).
+    st.duty = (DUTY_CEIL > 0.0f) ? (g_status.duty / DUTY_CEIL) : 0.0f;
+    st.rep_count = session_reps(&g_session);
+    st.last_rom_deg = session_last_rep_range(&g_session);
+    ui_app_publish_status(&st);
+}
+#endif // REDUX_UI_PANEL
+
+// =============================================================================
 //  API pública.
 // =============================================================================
 void app_init(void) {
     bts7960_init(); // configura el PWM del motor (slice 4, 20 kHz) y deja el driver en 0
+#if REDUX_ENC_SIM
+    enc_sim_init(); // arranca el ángulo simulado en 0° (flexión máxima)
+#endif
     supervisor_init(&g_sv);
     power_init(&g_ps);
     angle_watch_reset(&g_aw);
@@ -621,6 +745,12 @@ void app_init(void) {
     ui_message("REDUX listo. Confirme (pulsador u 'ok') para iniciar.");
     supervisor_out_t out = {ST_BOOT, false, FAULT_NONE};
     g_out = out;
+#if REDUX_UI_PANEL
+    g_last_ui_pub_ms = 0u;
+    // No hay pulsador físico en la caja: un CONFIRM inicial mueve BOOT -> CHECK_ENC; con el
+    // encoder OK el supervisor sigue solo hasta IDLE y el panel muestra el menú (Inicio -> Main).
+    g_pending_ev = UI_EV_CONFIRM;
+#endif
 }
 
 void app_tick(bool loop_behind) {
@@ -637,6 +767,18 @@ void app_tick(bool loop_behind) {
     // propio este tick, se usa el inyectado.
     ui_tick();
     ui_event_t ev = ui_poll();
+#if REDUX_UI_PANEL
+    // START_SESSION del panel trae brazo + ID por el buffer de sesión: se traduce al mismo
+    // pedido que el comando "sesion"; el inicio real entra luego por g_pending_ev.
+    if (ev == UI_EV_START_SESSION) {
+        ui_event_msg_t m;
+        if (ui_app_take_session(&m)) {
+            request_session(patient_id_to_int(m.patient_id),
+                            (m.arm == UI_ARM_RIGHT) ? 'd' : 'i');
+        }
+        ev = UI_EV_NONE;
+    }
+#endif
     if (ev == UI_EV_NONE && g_pending_ev != UI_EV_NONE) {
         ev = g_pending_ev;
         g_pending_ev = UI_EV_NONE;
@@ -663,7 +805,11 @@ void app_tick(bool loop_behind) {
     in.calib_failed = calib_failed;
     in.emg_rest = e.rest;
     in.emg_saturated = e.saturated;
-    in.cycle_overrun = g_last_overrun || loop_behind;
+    bool ui_hb_lost = false;
+#if REDUX_UI_PANEL
+    ui_hb_lost = ui_app_heartbeat_lost(); // core 1 colgado > 500 ms => FAULT (vía sobrepaso)
+#endif
+    in.cycle_overrun = g_last_overrun || loop_behind || ui_hb_lost;
     in.ui_event = ev;
 
     const sys_state_t prev = g_sv.state;
@@ -690,6 +836,10 @@ void app_tick(bool loop_behind) {
     // Sentido y duty REALMENTE escritos al PWM este tick (no el objetivo de la rampa):
     // así el reporte coincide con lo que mide un osciloscopio en GP8/GP9.
     bts7960_applied(&g_status.dir, &g_status.duty);
+#if REDUX_ENC_SIM
+    // Encoder simulado: el ángulo integra el sentido/duty realmente aplicados al motor.
+    enc_sim_integrate(g_status.dir, g_status.duty);
+#endif
 
     // Estadística por repetición: solo en marcha, con el ángulo y el duty realmente
     // aplicados. session_sample ignora la muestra si no hay sesión activa.
@@ -703,6 +853,14 @@ void app_tick(bool loop_behind) {
     g_status.session_patient = session_patient(&g_session);
     g_status.session_arm = session_arm(&g_session);
     g_status.session_reps = session_reps(&g_session);
+
+#if REDUX_UI_PANEL
+    // Publicación del estado a la UI del panel (~20 Hz, no cada tick).
+    if ((now_ms - g_last_ui_pub_ms) >= UI_PUBLISH_PERIOD_MS) {
+        g_last_ui_pub_ms = now_ms;
+        publish_ui_status();
+    }
+#endif
 
     g_tick++;
 
@@ -739,25 +897,7 @@ bool app_feed_session(const char *line) {
             ui_message("Uso: sesion <id_paciente> <i|d>  (i = izquierdo, d = derecho).");
             return true;
         }
-        if (g_sv.state != ST_IDLE) {
-            ui_message("La sesion se inicia desde el estado IDLE (listo).");
-            return true;
-        }
-        if (session_tx_busy(&g_session)) {
-            ui_message("Enviando el resultado de la sesion anterior, espere.");
-            return true;
-        }
-        if (!g_enc_ok) {
-            ui_message("Encoder no esta OK: no se puede iniciar la sesion.");
-            return true;
-        }
-        g_pending_patient = pac;
-        g_pending_arm = arm;
-        g_pending_ev = UI_EV_START_SESSION;
-        if (pac == 0) {
-            ui_message("Paciente 0: la sesion funciona pero NO se va a guardar.");
-        }
-        ui_message("Iniciando sesion: calibracion.");
+        request_session((int32_t)pac, arm);
         return true;
     }
     if (strcmp(line, "fin") == 0) {
@@ -765,6 +905,25 @@ bool app_feed_session(const char *line) {
         g_pending_ev = UI_EV_CANCEL;
         return true;
     }
+    return false;
+}
+
+bool app_feed_enc(const char *line) {
+#if REDUX_ENC_SIM
+    if (strncmp(line, "ang ", 4u) == 0) {
+        float deg = 0.0f;
+        if (sscanf(line + 4, "%f", &deg) == 1) {
+            enc_sim_set_angle_deg(deg);
+            char buf[STATUS_LINE_MAX];
+            (void)snprintf(buf, sizeof(buf), "Encoder simulado en %.1f grados.", (double)deg);
+            ui_message(buf);
+        } else {
+            ui_message("Uso: ang <grados>  (0..140, posiciona el encoder simulado).");
+        }
+        return true;
+    }
+#endif
+    (void)line;
     return false;
 }
 

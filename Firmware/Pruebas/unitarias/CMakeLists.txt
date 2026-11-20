@@ -26,7 +26,9 @@ add_library(unity STATIC unity/unity.c)
 target_include_directories(unity PUBLIC unity)
 
 # Directorios de cabeceras portables del proyecto + los mocks de hal_*.
+# ${REDUX_ROOT}/src está para que redux_types.h resuelva "app/ui.h" (contrato único con la UI).
 set(TEST_INCLUDE_DIRS
+        ${REDUX_ROOT}/src
         ${REDUX_ROOT}/src/common
         ${REDUX_ROOT}/src/hal
         ${REDUX_ROOT}/src/sensors

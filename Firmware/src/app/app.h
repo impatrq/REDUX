@@ -60,6 +60,12 @@ bool app_feed_sim(const char *line);
 // línea; false si no es un comando de sesión (para que el llamador la pase a la interfaz).
 bool app_feed_session(const char *line);
 
+// Procesa un comando del encoder simulado (solo con REDUX_ENC=SIM):
+//   "ang <grados>" -> posiciona el ángulo del encoder simulado (0..140), para calibrar el
+//   rango sin hardware. En la build con AS5600 real no reconoce nada y devuelve false.
+// Devuelve true si consumió la línea; false si no (para que el llamador la pase a la interfaz).
+bool app_feed_enc(const char *line);
+
 // --- Envío del resultado de la sesión (@SESION), no bloqueante ---------------
 // true mientras haya un resultado de sesión pendiente de enviar por USB.
 bool app_session_tx_busy(void);

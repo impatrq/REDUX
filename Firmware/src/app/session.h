@@ -91,6 +91,10 @@ int32_t session_patient(const session_t *s);
 char session_arm(const session_t *s);
 uint16_t session_reps(const session_t *s);
 
+// Rango (grados) de la última repetición cerrada; 0 si todavía no hay ninguna. Para el
+// campo last_rom_deg de ui_status_t (lo muestra el panel en marcha).
+float session_last_rep_range(const session_t *s);
+
 // Decide si el resultado debe enviarse a la API. Devuelve false (y, si `motivo` no es
 // NULL, el motivo) cuando id_paciente == 0 o no hay repeticiones válidas.
 bool session_should_send(const ui_session_result_t *r, const char **motivo);

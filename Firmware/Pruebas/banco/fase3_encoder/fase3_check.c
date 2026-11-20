@@ -171,7 +171,7 @@ int main(void) {
     hal_i2c_init();
     bts7960_init();        // arranca deshabilitado y en duty 0
     bts7960_enable(false); // el motor NO se usa en la Fase 3: queda deshabilitado
-    ui_init();
+    fw_ui_init();
 
     printf("REDUX fase3_check: 'cal' calibra, 'raw' vuelve a crudo. Motor deshabilitado.\n");
     enter_raw_mode();

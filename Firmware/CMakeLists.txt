@@ -43,6 +43,28 @@ foreach(emg_opt REDUX_EMG_BIC REDUX_EMG_TRI)
         endif()
 endforeach()
 
+# Interfaz de usuario del firmware principal. PANEL = pantalla ST7735 + teclado 4x4 con LVGL
+# (toma las fuentes de ../UI y corre la UI en el core 1); BASIC = la UI por serie actual
+# (ui_basic). Por defecto PANEL. Los programas de banco usan siempre ui_basic.
+set(REDUX_UI PANEL CACHE STRING "Interfaz: PANEL (pantalla+teclado+LVGL) o BASIC (serie)")
+set_property(CACHE REDUX_UI PROPERTY STRINGS PANEL BASIC)
+if(NOT (REDUX_UI STREQUAL "PANEL" OR REDUX_UI STREQUAL "BASIC"))
+        message(FATAL_ERROR "REDUX_UI debe ser PANEL o BASIC (es '${REDUX_UI}')")
+endif()
+
+# Fuente del ángulo del encoder. AS5600 = encoder real por I2C; SIM = encoder simulado que
+# integra el duty aplicado (sensors/enc_sim), para probar sin hardware. Por defecto AS5600:
+# SIM nunca queda por defecto, hay que pedirlo con -DREDUX_ENC=SIM.
+set(REDUX_ENC AS5600 CACHE STRING "Encoder: AS5600 (real por I2C) o SIM (simulado)")
+set_property(CACHE REDUX_ENC PROPERTY STRINGS AS5600 SIM)
+if(NOT (REDUX_ENC STREQUAL "AS5600" OR REDUX_ENC STREQUAL "SIM"))
+        message(FATAL_ERROR "REDUX_ENC debe ser AS5600 o SIM (es '${REDUX_ENC}')")
+endif()
+
+# Raíz de la línea UI (mismo repo, carpeta hermana). De acá salen LVGL, el export de
+# SquareLine y las fuentes de pantalla/teclado/Wi-Fi cuando REDUX_UI=PANEL.
+set(REDUX_UI_DIR ${CMAKE_CURRENT_LIST_DIR}/../UI)
+
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
@@ -70,18 +92,55 @@ set(REDUX_ACTUATOR_SOURCES
 )
 
 # Drivers de sensores (sensors/). C portable: usan solo el HAL, nunca el SDK.
-set(REDUX_SENSOR_SOURCES
-        src/sensors/as5600.c
+# Comunes a todas las builds (el encoder va aparte, según REDUX_ENC).
+set(REDUX_SENSOR_SOURCES_COMMON
         src/sensors/rom_calib.c
         src/sensors/emg.c
         src/sensors/emg_calib.c
         src/sensors/emg_source.c
 )
+# Fuente del encoder para el firmware principal: as5600.c (real) o enc_sim.c (simulado). Las
+# dos implementan la misma API (as5600.h), así que solo se compila una. Los bancos usan
+# siempre el AS5600 real (son herramientas de hardware), ver REDUX_SENSOR_SOURCES.
+if(REDUX_ENC STREQUAL "SIM")
+        set(REDUX_ENC_SOURCE src/sensors/enc_sim.c)
+else()
+        set(REDUX_ENC_SOURCE src/sensors/as5600.c)
+endif()
+# Lista completa de sensores con el AS5600 real (bancos y lista de flags estrictas).
+set(REDUX_SENSOR_SOURCES
+        src/sensors/as5600.c
+        ${REDUX_SENSOR_SOURCES_COMMON}
+)
 
-# Interfaz de usuario (app/). ui_basic implementa ui.h con pulsador, LED y USB.
+# Interfaz de usuario (app/). ui_basic implementa el enganche fw_ui.h con pulsador, LED y USB.
+# La usan siempre los programas de banco; el firmware principal usa esta o el panel (REDUX_UI).
 set(REDUX_UI_SOURCES
         src/app/ui_basic.c
 )
+
+# Fuentes de la UI del panel (desde ../UI): código propio de la línea UI + el puente del lado
+# del firmware (ui_panel_fw.c implementa fw_ui.h y el contrato cruzado app/ui.h). LVGL y el
+# export de SquareLine se agregan como librerías aparte más abajo (solo con REDUX_UI=PANEL).
+set(REDUX_UI_PANEL_FW_SOURCE src/app/ui_panel_fw.c)
+set(REDUX_UI_PANEL_UISOURCES
+        ${REDUX_UI_DIR}/src/hal/hal_spi.c
+        ${REDUX_UI_DIR}/src/hal/hal_keypad.c
+        ${REDUX_UI_DIR}/src/hal/hal_keypad_logic.c
+        ${REDUX_UI_DIR}/src/hal/hal_wifi.c
+        ${REDUX_UI_DIR}/src/ui/st7735.c
+        ${REDUX_UI_DIR}/src/ui/lv_port_disp.c
+        ${REDUX_UI_DIR}/src/ui/lv_port_indev.c
+        ${REDUX_UI_DIR}/src/ui/ui_panel.c
+        ${REDUX_UI_DIR}/src/ui/ui_core1.c
+)
+
+# UI del firmware principal según REDUX_UI.
+if(REDUX_UI STREQUAL "PANEL")
+        set(REDUX_MAIN_UI_SOURCES ${REDUX_UI_PANEL_FW_SOURCE} ${REDUX_UI_PANEL_UISOURCES})
+else()
+        set(REDUX_MAIN_UI_SOURCES ${REDUX_UI_SOURCES})
+endif()
 
 # Lógica de control pura (control/). C portable: solo config/util, nunca el SDK.
 set(REDUX_CONTROL_SOURCES
@@ -110,7 +169,9 @@ set(REDUX_SOURCES
         ${REDUX_HAL_SOURCES}
         ${REDUX_ACTUATOR_SOURCES}
         ${REDUX_SENSOR_SOURCES}
+        src/sensors/enc_sim.c
         ${REDUX_UI_SOURCES}
+        src/app/ui_panel_fw.c
         ${REDUX_CONTROL_SOURCES}
         ${REDUX_APP_SOURCES}
 )
@@ -147,14 +208,35 @@ function(redux_configure_target target)
         pico_add_extra_outputs(${target})
 endfunction()
 
+# ---------------------------------------------------------------------------
+# UI del panel (REDUX_UI=PANEL): LVGL 8.3.11 + export de SquareLine, desde ../UI.
+# Mismo esquema que el CMakeLists del laboratorio: LVGL con includes SYSTEM (sus avisos no
+# cuentan) y la librería "ui" del export con su propio CMakeLists.
+# ---------------------------------------------------------------------------
+if(REDUX_UI STREQUAL "PANEL")
+        file(GLOB_RECURSE LVGL_SOURCES CONFIGURE_DEPENDS ${REDUX_UI_DIR}/lib/lvgl/src/*.c)
+        add_library(lvgl STATIC ${LVGL_SOURCES})
+        target_compile_definitions(lvgl PUBLIC LV_CONF_INCLUDE_SIMPLE)
+        target_include_directories(lvgl SYSTEM PUBLIC
+                ${REDUX_UI_DIR}/lib       # "lvgl/lvgl.h"
+                ${REDUX_UI_DIR}/src/ui    # "lv_conf.h"
+        )
+        target_link_libraries(lvgl PUBLIC pico_stdlib)
+
+        add_subdirectory(${REDUX_UI_DIR}/src/ui/squareline ${CMAKE_BINARY_DIR}/squareline)
+        target_link_libraries(ui PUBLIC lvgl)
+endif()
+
 # Firmware principal: integra todas las capas (app -> control/sensors/actuators -> hal).
+# El encoder (REDUX_ENC) y la UI (REDUX_UI) entran por las listas condicionales de arriba.
 add_executable(redux-firmware
         src/main.c
         ${REDUX_APP_SOURCES}
         ${REDUX_CONTROL_SOURCES}
-        ${REDUX_SENSOR_SOURCES}
+        ${REDUX_SENSOR_SOURCES_COMMON}
+        ${REDUX_ENC_SOURCE}
         ${REDUX_ACTUATOR_SOURCES}
-        ${REDUX_UI_SOURCES}
+        ${REDUX_MAIN_UI_SOURCES}
         ${REDUX_HAL_SOURCES}
 )
 pico_set_program_name(redux-firmware "redux-firmware")
@@ -168,6 +250,29 @@ target_compile_definitions(redux-firmware PRIVATE PICO_STDIO_USB_STDOUT_TIMEOUT_
 target_compile_definitions(redux-firmware PRIVATE
         EMG_SOURCE_BIC=EMG_SOURCE_${REDUX_EMG_BIC}
         EMG_SOURCE_TRI=EMG_SOURCE_${REDUX_EMG_TRI})
+
+# Encoder simulado: activa las ramas #if REDUX_ENC_SIM (sensors/enc_sim, integración del duty).
+if(REDUX_ENC STREQUAL "SIM")
+        target_compile_definitions(redux-firmware PRIVATE REDUX_ENC_SIM=1)
+endif()
+
+# UI del panel: activa las ramas #if REDUX_UI_PANEL (app.c, ui_panel_fw) y suma la línea UI.
+if(REDUX_UI STREQUAL "PANEL")
+        target_compile_definitions(redux-firmware PRIVATE REDUX_UI_PANEL=1)
+        # Raíz de includes de la línea UI ("ui/ui_config.h", "hal/hal_wifi.h", "lwipopts.h",
+        # "ui/wifi_redes.h"). board.h y app/ui.h salen de src/ del firmware (va primero).
+        target_include_directories(redux-firmware PRIVATE ${REDUX_UI_DIR}/src)
+        target_link_libraries(redux-firmware
+                hardware_spi
+                hardware_dma
+                pico_multicore
+                pico_cyw43_arch_lwip_threadsafe_background
+                lvgl
+                ui)
+        # Código propio de la línea UI: mismas flags estrictas que en su laboratorio.
+        set_source_files_properties(${REDUX_UI_PANEL_UISOURCES} PROPERTIES
+                COMPILE_OPTIONS "-Wall;-Wextra;-Werror;-Wshadow;-Wconversion;-Wdouble-promotion;-Wstrict-prototypes;-Wmissing-prototypes")
+endif()
 
 # Programas de banco (Pruebas/banco/*): ejecutables de prueba sobre la placa, aparte del
 # firmware. Se compilan solo si REDUX_BUILD_BANCOS está en ON (ver opción más arriba).

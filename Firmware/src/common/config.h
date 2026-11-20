@@ -131,6 +131,19 @@ _Static_assert(DUTY_MIN < DUTY_MAX, "DUTY_MIN debe ser menor que DUTY_MAX");
 #define EMG_SOURCE_TRI EMG_SOURCE_SERIAL
 #endif
 
+// --- Encoder simulado (REDUX_ENC=SIM, ver sensors/enc_sim) --------------------
+// Rango simulado del "brazo" (0° = flexión máxima) y velocidad del ángulo cuando el motor
+// aplica duty 1.0. En marcha, cada tick de 1 ms integra duty·ENC_SIM_DEG_PER_S·0,001 s.
+#define ENC_SIM_MAX_DEG     140.0f // tope del recorrido simulado (dentro de [ROM_MIN, ROM_MAX])
+#define ENC_SIM_DEG_PER_S   180.0f // velocidad del ángulo a duty 1.0 (°/s)
+
+// --- Integración con la UI del panel (REDUX_UI=PANEL, ver app/ui_panel_fw) ----
+// El core 0 publica el estado a la UI cada UI_PUBLISH_PERIOD_MS (~20 Hz). El core 1 marca un
+// latido; si el core 0 no lo ve en UI_HEARTBEAT_TIMEOUT_MS, fuerza FAULT (motor apagado). El
+// core 0 recién vigila el latido una vez que el core 1 avisó que terminó de arrancar.
+#define UI_PUBLISH_PERIOD_MS     50u  // período de ui_app_publish_status (= UI_STATUS_PERIOD_MS)
+#define UI_HEARTBEAT_TIMEOUT_MS  500u // sin latido del core 1 por más de esto => FAULT
+
 // Modo banco: limita el duty del motor a un techo más seguro (DUTY_MAX_BENCH) mientras
 // se prueba sin el brazo. Desactivar (BENCH_MODE 0) para los valores finales.
 #define BENCH_MODE 1
