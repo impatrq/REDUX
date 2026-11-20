@@ -116,4 +116,31 @@ void ui_app_publish_session(const ui_event_msg_t *msg);
  */
 bool ui_app_take_session(ui_event_msg_t *out);
 
+/* --- Envío del resultado a la API por Wi-Fi (Paso C) -------------------------
+ * El core 0 arma el cuerpo JSON de la sesión en un buffer COMPARTIDO (lo provee el
+ * core 1, dimensionado para el peor caso) y lo entrega al core 1, que corre el cliente
+ * HTTP (lwIP, junto al Wi-Fi). El estado real del envío lo muestra el panel. La línea
+ * @SESION por USB se mantiene siempre como respaldo (no depende de esto).
+ */
+
+/**
+ * Core 0: puntero al buffer compartido donde armar el cuerpo JSON (deja la capacidad en
+ * *cap). Solo es válido escribir cuando ui_app_tx_busy() es false (si no, el core 1 podría
+ * estar leyéndolo para enviarlo). En BASIC no se usa (el envío es solo del panel).
+ */
+char *ui_app_tx_buffer(uint32_t *cap);
+
+/** Core 0: confirma que el cuerpo (de `len` bytes) está listo para enviarse. */
+void ui_app_tx_commit(uint32_t len, int32_t paciente);
+
+/**
+ * Core 0: avisa que la sesión NO se envía por Wi-Fi, con el motivo a mostrar en la pantalla
+ * de fin (p. ej. "sin paciente (id 0)" o "sesion muy larga, quedo en USB"). El resultado
+ * igual sale por USB @SESION.
+ */
+void ui_app_tx_skip(const char *motivo);
+
+/** Core 0: true mientras el core 1 tenga el buffer en uso (no pisarlo hasta que termine). */
+bool ui_app_tx_busy(void);
+
 #endif /* APP_UI_H */

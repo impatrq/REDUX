@@ -172,6 +172,88 @@ void test_json_max_reps(void) {
     TEST_ASSERT_NULL(strstr(g_buf, ",]"));
 }
 
+// --- session_build_body: cuerpo HTTP (sin "@SESION " ni '\n') --------------------
+void test_build_body_one_rep_exact(void) {
+    session_t s;
+    session_init(&s);
+    strcpy(s.result.id_envio, "sdeadbeef00000001");
+    s.result.id_paciente = 7;
+    s.result.brazo = 'd';
+    s.result.rom_calibrado_grados = 120.5f;
+    s.result.duracion_s = 42u;
+    s.result.n_reps = 1u;
+    s.result.repeticiones[0].numero = 1u;
+    s.result.repeticiones[0].rango_grados = 90.0f;
+    s.result.repeticiones[0].asistencia_pct = 50.0f;
+    s.result.repeticiones[0].duracion_ms = 900u;
+
+    const size_t n = session_build_body(&s, g_buf, sizeof(g_buf));
+    TEST_ASSERT_EQUAL_STRING(
+        "{\"id_envio\":\"sdeadbeef00000001\",\"id_paciente\":7,\"brazo\":\"derecho\","
+        "\"rom_calibrado_grados\":120.5,\"duracion_s\":42,\"repeticiones\":["
+        "{\"numero\":1,\"rango_grados\":90.0,\"asistencia_pct\":50.0,\"duracion_ms\":900}]}",
+        g_buf);
+    TEST_ASSERT_EQUAL_UINT(strlen(g_buf), n);
+}
+
+void test_build_body_zero_reps_exact(void) {
+    session_t s;
+    session_init(&s);
+    strcpy(s.result.id_envio, "s0000000000000000");
+    s.result.id_paciente = 3;
+    s.result.brazo = 'i';
+    s.result.rom_calibrado_grados = 0.0f;
+    s.result.duracion_s = 0u;
+    s.result.n_reps = 0u;
+
+    const size_t n = session_build_body(&s, g_buf, sizeof(g_buf));
+    TEST_ASSERT_EQUAL_STRING(
+        "{\"id_envio\":\"s0000000000000000\",\"id_paciente\":3,\"brazo\":\"izquierdo\","
+        "\"rom_calibrado_grados\":0.0,\"duracion_s\":0,\"repeticiones\":[]}",
+        g_buf);
+    TEST_ASSERT_EQUAL_UINT(strlen(g_buf), n);
+}
+
+// El cuerpo completo entra en SESSION_API_BODY_MAX incluso con 500 repeticiones.
+void test_build_body_max_reps_fits(void) {
+    session_t s;
+    session_init(&s);
+    strcpy(s.result.id_envio, "sfull");
+    s.result.id_paciente = 11;
+    s.result.brazo = 'd';
+    s.result.rom_calibrado_grados = 150.0f;
+    s.result.duracion_s = 600u;
+    s.result.n_reps = (uint16_t)SESSION_MAX_REPS;
+    for (uint16_t i = 0u; i < (uint16_t)SESSION_MAX_REPS; ++i) {
+        s.result.repeticiones[i].numero = (uint16_t)(i + 1u);
+        s.result.repeticiones[i].rango_grados = 90.0f;
+        s.result.repeticiones[i].asistencia_pct = 50.0f;
+        s.result.repeticiones[i].duracion_ms = 900u;
+    }
+
+    static char body[SESSION_API_BODY_MAX];
+    const size_t n = session_build_body(&s, body, sizeof(body));
+    TEST_ASSERT_TRUE(n > 0u);                     // entró (no devolvió 0)
+    TEST_ASSERT_EQUAL_UINT(strlen(body), n);
+    TEST_ASSERT_EQUAL_INT((int)SESSION_MAX_REPS, count_substr(body, "\"numero\":"));
+    TEST_ASSERT_NOT_NULL(strstr(body, "\"duracion_ms\":900}]}"));  // cierra sin '\n'
+}
+
+// Si el buffer no alcanza, devuelve 0 y no desborda (el llamador deja el respaldo por USB).
+void test_build_body_too_small(void) {
+    session_t s;
+    session_init(&s);
+    strcpy(s.result.id_envio, "sx");
+    s.result.id_paciente = 1;
+    s.result.brazo = 'i';
+    s.result.n_reps = 1u;
+    s.result.repeticiones[0].numero = 1u;
+
+    char tiny[16];
+    const size_t n = session_build_body(&s, tiny, sizeof(tiny));
+    TEST_ASSERT_EQUAL_UINT(0u, n);
+}
+
 int main(void) {
     UNITY_BEGIN();
     RUN_TEST(test_make_id_format);
@@ -181,5 +263,9 @@ int main(void) {
     RUN_TEST(test_json_zero_reps_exact);
     RUN_TEST(test_json_escapes_in_id);
     RUN_TEST(test_json_max_reps);
+    RUN_TEST(test_build_body_one_rep_exact);
+    RUN_TEST(test_build_body_zero_reps_exact);
+    RUN_TEST(test_build_body_max_reps_fits);
+    RUN_TEST(test_build_body_too_small);
     return UNITY_END();
 }

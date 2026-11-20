@@ -61,7 +61,6 @@
 /* Los dígitos '0'…'9' llegan a LVGL como su propio carácter (campo de ID en Perfil). */
 
 /* ---- Pantallas ---- */
-#define UI_SEND_MSG_MS               5000u     /* "Enviando datos..." en ScreenEnding */
 #define UI_PROFILE_ID_CHARS          "0123456789"  /* Lo único que acepta el ID de usuario */
 
 /* ---- Wi-Fi (hal_wifi y pantalla Wifi, los dos en el core 1) ---- */
@@ -74,5 +73,17 @@
 
 /* ---- Contrato con el firmware ---- */
 #define UI_STATUS_PERIOD_MS          50u       /* El firmware publica a ~20 Hz */
+
+/* ---- API de sesiones (hal_api, core 1): POST /api/sesion por Wi-Fi ---- */
+#define UI_API_PATH_SESION           "/api/sesion"
+#define UI_API_PATH_PACIENTE         "/api/paciente/"  /* + <id> (Paso C, punto 6) */
+#define UI_API_POLL_PERIOD_MS        20u       /* Cada cuánto corre hal_api_poll (máquina de estados) */
+#define UI_API_RETRY_MAX             5u        /* Reintentos ante falla recuperable (sin Wi-Fi, 5xx, timeout) */
+#define UI_API_RETRY_INTERVAL_MS     5000u     /* Espera entre reintentos, con el MISMO id_envio */
+#define UI_API_CONNECT_TIMEOUT_MS    8000u     /* Tope para asociar la conexión TCP */
+#define UI_API_RESPONSE_TIMEOUT_MS   8000u     /* Tope para enviar y recibir la respuesta */
+#define UI_API_RESP_MAX              256u      /* Bytes de la respuesta HTTP que se guardan (línea de estado + motivo) */
+#define UI_API_HEADER_MAX            256u      /* Tope de los encabezados HTTP de la petición */
+#define UI_API_MOTIVO_MAX            64u       /* Tope del motivo de error que se muestra en pantalla */
 
 #endif /* UI_CONFIG_H */

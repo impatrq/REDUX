@@ -25,7 +25,6 @@
 #define UI_PANEL_PERCENT_MAX     100
 #define UI_PANEL_ROUND_HALF      0.5f
 #define UI_PANEL_ENDING_ANIM_MS  500u      /* Marcha -> ScreenEnding, igual que Main -> ScreenBegin */
-#define UI_PANEL_ONE_SHOT        1         /* Repeticiones de un timer que corre una sola vez */
 #define UI_PANEL_MODE_ANIM_MS    300u      /* FADE en los cambios de pantalla por modo del firmware */
 #define UI_PANEL_BOOT_MIN_MS     2000u     /* Inicio se muestra al menos esto antes de pasar a Main */
 
@@ -78,8 +77,12 @@ static const ui_panel_fault_text_t s_fault_text[] = {
 #define UI_PANEL_FAULT_COUNT     (sizeof(s_fault_text) / sizeof(s_fault_text[0]))
 static const char s_fault_unknown_text[] = "Falla del sistema";
 
-static const char s_sending_text[] = "Enviando datos...";
-static const char s_sent_text[] = "Enviados!";
+/* Pantalla de fin: estado REAL del envío a la API (Paso C). El motivo del error lo arma el
+ * firmware (ASCII, sin tildes) y se antepone con s_tx_error_prefix. */
+static const char s_tx_sending_text[]  = "Enviando...";
+static const char s_tx_sent_text[]     = "Enviado";
+static const char s_tx_retrying_text[] = "Sin conexión, reintentando...";
+static const char s_tx_error_prefix[]  = "Error: ";
 static const char s_measuring_text[] = "Midiendo...";
 
 /* Título de Wifi (LblRedes) según el estado; cortos para que entren en 128 px. */
@@ -99,7 +102,6 @@ static bool s_has_mode = false;      /* false hasta el primer mensaje de estado 
 static ui_mode_t s_mode = UI_MODE_BOOT;
 static uint32_t s_boot_shown_ms = 0u; /* Tick en que se mostro Inicio (BOOT), para el minimo de 2 s */
 static uint32_t s_last_press = 0u;   /* Última pulsación que generó un evento */
-static lv_timer_t *s_send_timer = NULL;  /* "Enviando datos..." en curso */
 
 /* Calibración: tras apretar "Guardar", la pantalla muestra "Midiendo..." hasta que el estado
  * (modo o prompt) avance. Se recuerda qué estaba midiéndose para detectar el avance. */
@@ -529,24 +531,12 @@ static void ui_panel_begin_key_cb(lv_event_t *e)
     }
 }
 
-static void ui_panel_sent_cb(lv_timer_t *timer)
-{
-    (void)timer;
-    ui_panel_set_text(ui_LblEnvio, s_sent_text);
-    s_send_timer = NULL;  /* LVGL borra el timer al terminar su única repetición */
-}
-
-/** Terminar: fin de sesión. La UI pasa sola a ScreenEnding; el firmware vuelve a IDLE. */
+/** Terminar: fin de sesión. La UI pasa sola a ScreenEnding; el firmware vuelve a IDLE.
+ *  El texto de envío lo maneja ui_panel_set_tx_status con el estado REAL (ya no por tiempo). */
 static void ui_panel_finish_cb(lv_event_t *e)
 {
     (void)e;
-    ui_panel_set_text(ui_LblEnvio, s_sending_text);
-    if (s_send_timer != NULL) {
-        lv_timer_del(s_send_timer);
-    }
-    s_send_timer = lv_timer_create(ui_panel_sent_cb, UI_SEND_MSG_MS, NULL);
-    lv_timer_set_repeat_count(s_send_timer, UI_PANEL_ONE_SHOT);
-
+    ui_panel_set_text(ui_LblEnvio, s_tx_sending_text);
     lv_scr_load_anim(ui_ScreenEnding, LV_SCR_LOAD_ANIM_FADE_ON, UI_PANEL_ENDING_ANIM_MS, 0u, false);
     ui_panel_emit(UI_EV_CANCEL);
 }
@@ -726,5 +716,30 @@ void ui_panel_show_status(const ui_status_t *status)
     case UI_MODE_BOOT:
     case UI_MODE_IDLE:
     default:            break;  /* Inicio y el menú no muestran datos del firmware */
+    }
+}
+
+void ui_panel_set_tx_status(ui_panel_tx_t state, const char *motivo)
+{
+    switch (state) {
+    case UI_PANEL_TX_SENDING:
+        ui_panel_set_text(ui_LblEnvio, s_tx_sending_text);
+        break;
+    case UI_PANEL_TX_RETRYING:
+        ui_panel_set_text(ui_LblEnvio, s_tx_retrying_text);
+        break;
+    case UI_PANEL_TX_SENT:
+        ui_panel_set_text(ui_LblEnvio, s_tx_sent_text);
+        break;
+    case UI_PANEL_TX_ERROR: {
+        char text[UI_API_MOTIVO_MAX + sizeof(s_tx_error_prefix)];
+        (void)snprintf(text, sizeof(text), "%s%s", s_tx_error_prefix,
+                       (motivo != NULL) ? motivo : "");
+        ui_panel_set_text(ui_LblEnvio, text);
+        break;
+    }
+    case UI_PANEL_TX_IDLE:
+    default:
+        break; /* No piso el texto: deja lo último mostrado */
     }
 }

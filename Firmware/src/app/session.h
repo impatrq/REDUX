@@ -99,6 +99,13 @@ float session_last_rep_range(const session_t *s);
 // NULL, el motivo) cuando id_paciente == 0 o no hay repeticiones válidas.
 bool session_should_send(const ui_session_result_t *r, const char **motivo);
 
+// Arma el cuerpo JSON exacto de POST /api/sesion (sin el prefijo "@SESION " ni '\n' final)
+// en `buf` y devuelve su largo en bytes (sin contar el '\0' de cortesía). Una sola pasada,
+// para la API por Wi-Fi (Paso C), que necesita el cuerpo entero (Content-Length). Devuelve
+// 0 si no entra en `cap` (el llamador avisa y mantiene el respaldo por USB). No toca el
+// emisor por partes (session_tx_*): es const y puede convivir con el envío por USB.
+size_t session_build_body(const session_t *s, char *buf, size_t cap);
+
 // --- Emisor del JSON @SESION, por partes y sin bloquear ----------------------
 // Arranca el envío del resultado actual desde el principio.
 void session_tx_begin(session_t *s);

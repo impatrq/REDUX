@@ -16,6 +16,51 @@ Formato:
 
 ---
 
+## 2026-11-19 · Paso C · Envío de la sesión a la API por Wi-Fi (sin la PC por USB)
+
+La Pico envía el resultado de la sesión a la API (`POST /api/sesion`) por Wi-Fi, desde el
+core 1 (junto a LVGL y `hal_wifi`), sin bloquear el control del core 0. La línea `@SESION`
+por USB **se mantiene siempre** como respaldo (no depende de esto). Compila en PANEL+SIM,
+PANEL+AS5600 y BASIC; las pruebas unitarias siguen en verde (se sumaron 4 a
+`test_session_json`). Decisiones tomadas sin frenar (como se acordó):
+
+- **Config local:** `src/ui/api_config.h` (IP de la PC, puerto 5000, clave `X-Redux-Key`),
+  junto a `wifi_redes.h` y **en el `.gitignore`** (no se sube: lleva la clave). Plantilla
+  versionada `api_config.example.h`. Conecta por **IP directa** (sin DNS).
+- **Cliente HTTP = `src/hal/hal_api.c`** (al lado de `hal_wifi`): lwIP **TCP raw**
+  (`threadsafe_background`, ya en uso), máquina de estados por *polling* → **nunca bloquea**
+  (el latido del panel sigue durante el envío y sus reintentos). Se lo bombea con un
+  `lv_timer` creado en `ui_panel_fw` (core 1), así **no se tocó `ui_core1.c` y el laboratorio
+  queda intacto**.
+- **Reintentos (punto 3):** 200/201 = **enviado**; 4xx = **error definitivo** (se muestra el
+  `{"error":...}` de la API); sin Wi-Fi / sin respuesta / 5xx = reintento cada 5 s, hasta 5
+  veces, con el **mismo `id_envio`** (la API deduplica por `id_envio`, verificado en
+  `api_pico.py`). Cuerpo grande enviado **por partes** respetando `tcp_sndbuf` (callback
+  `sent`); el cuerpo se envía **sin copia** (persiste en el buffer compartido).
+- **Paso core 0 → core 1:** el core 0 arma el cuerpo JSON en un **buffer compartido** (una
+  sola copia, dimensionado para el peor caso `SESSION_MAX_REPS` ≈ **48 KB**; RAM verificada
+  con `size`: `.bss` ≈ 178 KB sobre 520 KB del RP2350, entra con amplio margen) y lo entrega
+  con `ui_app_tx_*` (contrato `app/ui.h`), protegido con `critical_section`. `session.c` suma
+  `session_build_body()` (cuerpo HTTP sin el prefijo `@SESION` ni `\n`), reusando los mismos
+  escritores de fragmentos que el emisor por USB (una sola fuente del formato). Si una sesión
+  **no entra** en el buffer, no se envía por Wi-Fi: sale completa por USB y la pantalla de fin
+  muestra **"Error: sesión muy larga, quedó en USB"** (nunca falla en silencio).
+- **Pantalla de fin con estado REAL (punto 4):** `ScreenEnding` ya **no** usa el timer fijo de
+  5 s; `ui_panel_set_tx_status()` refleja el estado real del cliente ("Enviando…", "Enviado",
+  "Sin conexión, reintentando…", "Error: <motivo>"). **No** hizo falta agregar un campo a
+  `ui_status_t`: el estado del envío **nace en el core 1** (donde está el cliente), no en el
+  core 0, así que el panel lo lee directo y el contrato de estado queda igual.
+- **Logs por USB (punto 7):** `API | POST /api/sesion -> <código>` en cada intento (con el
+  motivo en los 4xx y el número de reintento en las fallas recuperables).
+- **Punto 6 (GET /api/paciente/<id> para el nombre en Perfil):** PENDIENTE (era "sólo si sobra
+  tiempo"). El cliente y la ruta ya están contemplados (`UI_API_PATH_PACIENTE`); falta el
+  segundo flujo HTTP y un label de nombre en `ScreenPerfil`. Se deja para una próxima entrada.
+- **Alcance UI + firmware:** el Paso C toca `UI/` (config junto a `wifi_redes.h`, cliente HTTP
+  junto al Wi-Fi) y `Firmware/` (emisor del cuerpo, puente entre núcleos). El `CLAUDE.md` del
+  firmware dice "trabajar solo dentro de `Firmware/`", pero este paso es intrínsecamente
+  UI+API; se siguió el pedido explícito del Paso C. Fuera de los commits: `wifi_redes.h`,
+  `api_config.h` y los `CLAUDE.md`.
+
 ## 2026-11-19 · Paso D · Integración: un solo firmware con la UI del panel (core 1)
 
 Un único firmware en `../Firmware/` que corre la UI real del panel (LVGL + SquareLine + teclado
