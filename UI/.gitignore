@@ -4,3 +4,7 @@ build-tests/
 
 # Redes Wi-Fi guardadas (claves): local, nunca se sube. Plantilla: src/ui/wifi_redes.example.h
 src/ui/wifi_redes.h
+
+# Configuración de la API (IP de la compu + clave X-Redux-Key): local, nunca se sube.
+# Plantilla: src/ui/api_config.example.h
+src/ui/api_config.h
