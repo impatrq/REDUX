@@ -693,6 +693,12 @@ void ui_panel_show_status(const ui_status_t *status)
     if (!s_has_mode || (status->mode != s_mode)) {
         lv_obj_t *screen = ui_panel_mode_screen(status->mode);
         if (screen != ui_panel_current_screen()) {
+            /* El export arma un pulso de opacidad (PInPout, repeticion infinita) sobre el
+             * selector en cada SCREEN_LOADED. Como las pantallas se reutilizan (sesiones
+             * sucesivas), al recargar una se apilaba un segundo pulso sobre el mismo selector
+             * y el recuadro blanco parpadeaba rapido. Se borran los pulsos anteriores antes de
+             * cargar, asi queda uno solo por pantalla y solo se re-arma al cambiar de modo. */
+            (void)lv_anim_custom_del(NULL, _ui_anim_callback_set_opacity);
             lv_scr_load(screen);
         }
         s_mode = status->mode;
