@@ -114,6 +114,15 @@ _Static_assert(DUTY_MIN < DUTY_MAX, "DUTY_MIN debe ser menor que DUTY_MAX");
 #define SESSION_ID_MAX 20u        // "s" + 16 hex + '\0' = 18; redondeado a 20
 #define SESSION_TX_CHUNK 32u      // bytes del JSON @SESION drenados por vuelta del lazo
 
+// Cuerpo JSON para la API por Wi-Fi (Paso C). A diferencia del emisor por partes de USB, la
+// API necesita el cuerpo entero (Content-Length), así que se arma completo en un buffer.
+// Dimensionado para el peor caso (SESSION_MAX_REPS repeticiones). Si una sesión no entra,
+// NO se envía por Wi-Fi: sigue saliendo completa por USB @SESION y la pantalla de fin avisa.
+#define SESSION_API_REP_CHARS_MAX    96u   // cota de una repetición en el JSON
+#define SESSION_API_HEADER_CHARS_MAX 224u  // cota de la cabecera del JSON (id, paciente, brazo…)
+#define SESSION_API_BODY_MAX \
+    (SESSION_API_HEADER_CHARS_MAX + SESSION_MAX_REPS * SESSION_API_REP_CHARS_MAX + 8u)
+
 // Fuente de la señal EMG, elegible POR CANAL (bíceps y tríceps por separado). En el banco
 // (sin electrodos) se usa SERIAL: el ADC flotante con los electrodos desconectados podría
 // activar el motor. Para la prueba con el bíceps real todavía sin sensor de tríceps se usa

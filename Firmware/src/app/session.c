@@ -129,6 +129,38 @@ static void json_escape(char *dst, size_t cap, const char *src) {
     dst[j] = '\0';
 }
 
+// --- Escritores de cada fragmento del JSON (única fuente del formato) ---------
+// Los usan tanto el emisor por partes para USB (fill_segment) como el armado de una
+// sola pasada para la API por Wi-Fi (session_build_body), así el formato no se duplica.
+// Devuelven lo mismo que snprintf (los caracteres que se habrían escrito sin el '\0').
+
+// Cabecera del JSON. Con `with_prefix` antepone "@SESION " (línea por USB); sin él, empieza
+// directamente en '{' (cuerpo HTTP para POST /api/sesion).
+static int write_header(char *buf, size_t cap, const ui_session_result_t *r, bool with_prefix) {
+    char id_esc[SESSION_ID_MAX * 2u];
+    json_escape(id_esc, sizeof(id_esc), r->id_envio);
+    const char *brazo = (r->brazo == 'd') ? "derecho" : "izquierdo";
+    return snprintf(buf, cap,
+                    "%s{\"id_envio\":\"%s\",\"id_paciente\":%ld,\"brazo\":\"%s\","
+                    "\"rom_calibrado_grados\":%.1f,\"duracion_s\":%lu,\"repeticiones\":[",
+                    with_prefix ? "@SESION " : "", id_esc, (long)r->id_paciente, brazo,
+                    (double)r->rom_calibrado_grados, (unsigned long)r->duracion_s);
+}
+
+// Una repetición. `first` controla la coma separadora (la primera no la lleva).
+static int write_rep(char *buf, size_t cap, const ui_rep_t *rep, bool first) {
+    return snprintf(buf, cap,
+                    "%s{\"numero\":%u,\"rango_grados\":%.1f,\"asistencia_pct\":%.1f,"
+                    "\"duracion_ms\":%lu}",
+                    first ? "" : ",", (unsigned)rep->numero, (double)rep->rango_grados,
+                    (double)rep->asistencia_pct, (unsigned long)rep->duracion_ms);
+}
+
+// Cierre. Con `with_newline` termina en '\n' (línea por USB); sin él, en '}' (cuerpo HTTP).
+static int write_close(char *buf, size_t cap, bool with_newline) {
+    return snprintf(buf, cap, with_newline ? "]}\n" : "]}");
+}
+
 // Formatea el segmento siguiente (cabecera, una repetición o cierre) en tx.seg. Devuelve
 // false cuando ya no queda nada por emitir.
 static bool fill_segment(session_t *s) {
@@ -136,30 +168,17 @@ static bool fill_segment(session_t *s) {
     const ui_session_result_t *r = &s->result;
     int m = 0;
 
-    if (t->stage == 0) { // cabecera
-        char id_esc[SESSION_ID_MAX * 2u];
-        json_escape(id_esc, sizeof(id_esc), r->id_envio);
-        const char *brazo = (r->brazo == 'd') ? "derecho" : "izquierdo";
-        m = snprintf(t->seg, sizeof(t->seg),
-                     "@SESION {\"id_envio\":\"%s\",\"id_paciente\":%ld,\"brazo\":\"%s\","
-                     "\"rom_calibrado_grados\":%.1f,\"duracion_s\":%lu,\"repeticiones\":[",
-                     id_esc, (long)r->id_paciente, brazo, (double)r->rom_calibrado_grados,
-                     (unsigned long)r->duracion_s);
+    if (t->stage == 0) { // cabecera (con prefijo "@SESION " para la línea por USB)
+        m = write_header(t->seg, sizeof(t->seg), r, true);
         t->stage = (r->n_reps > 0u) ? 1 : 2;
     } else if (t->stage == 1) { // una repetición
-        const ui_rep_t *rep = &r->repeticiones[t->rep_i];
-        const char *sep = (t->rep_i == 0u) ? "" : ",";
-        m = snprintf(t->seg, sizeof(t->seg),
-                     "%s{\"numero\":%u,\"rango_grados\":%.1f,\"asistencia_pct\":%.1f,"
-                     "\"duracion_ms\":%lu}",
-                     sep, (unsigned)rep->numero, (double)rep->rango_grados,
-                     (double)rep->asistencia_pct, (unsigned long)rep->duracion_ms);
+        m = write_rep(t->seg, sizeof(t->seg), &r->repeticiones[t->rep_i], t->rep_i == 0u);
         t->rep_i++;
         if (t->rep_i >= r->n_reps) {
             t->stage = 2;
         }
-    } else if (t->stage == 2) { // cierre
-        m = snprintf(t->seg, sizeof(t->seg), "]}\n");
+    } else if (t->stage == 2) { // cierre (con '\n' final para la línea por USB)
+        m = write_close(t->seg, sizeof(t->seg), true);
         t->stage = 3;
     } else {
         return false; // terminado
@@ -168,6 +187,28 @@ static bool fill_segment(session_t *s) {
     t->seg_len = (m > 0 && (size_t)m < sizeof(t->seg)) ? (size_t)m : 0u;
     t->seg_pos = 0u;
     return true;
+}
+
+size_t session_build_body(const session_t *s, char *buf, size_t cap) {
+    const ui_session_result_t *r = &s->result;
+    // Cabecera sin el prefijo "@SESION " ni '\n': es el cuerpo exacto de POST /api/sesion.
+    int m = write_header(buf, cap, r, false);
+    if (m < 0 || (size_t)m >= cap) {
+        return 0u; // no entra (o error de formato)
+    }
+    size_t n = (size_t)m;
+    for (uint16_t i = 0u; i < r->n_reps; ++i) {
+        m = write_rep(buf + n, cap - n, &r->repeticiones[i], i == 0u);
+        if (m < 0 || (size_t)m >= cap - n) {
+            return 0u; // no entra el JSON completo: el llamador avisa y deja el respaldo por USB
+        }
+        n += (size_t)m;
+    }
+    m = write_close(buf + n, cap - n, false);
+    if (m < 0 || (size_t)m >= cap - n) {
+        return 0u;
+    }
+    return n + (size_t)m;
 }
 
 void session_tx_begin(session_t *s) {
