@@ -26,4 +26,20 @@ void ui_panel_set_event_cb(ui_panel_event_cb_t cb);
 /** Muestra un mensaje de estado: cambia de pantalla si cambió el modo y actualiza los textos. */
 void ui_panel_show_status(const ui_status_t *status);
 
+/** Estado REAL del envío del resultado a la API (Paso C), para la pantalla de fin. */
+typedef enum {
+    UI_PANEL_TX_IDLE = 0,  /**< Sin envío (no se muestra nada nuevo) */
+    UI_PANEL_TX_SENDING,   /**< "Enviando..." */
+    UI_PANEL_TX_RETRYING,  /**< "Sin conexión, reintentando..." */
+    UI_PANEL_TX_SENT,      /**< "Enviado" */
+    UI_PANEL_TX_ERROR      /**< "Error: <motivo>" */
+} ui_panel_tx_t;
+
+/**
+ * Fija el estado del envío que muestra la pantalla de fin (ScreenEnding). Lo llama el
+ * firmware (core 1) con el estado real del cliente HTTP; `motivo` solo se usa con
+ * UI_PANEL_TX_ERROR. En el laboratorio (sin firmware) no se llama: queda el texto inicial.
+ */
+void ui_panel_set_tx_status(ui_panel_tx_t state, const char *motivo);
+
 #endif /* UI_PANEL_H */

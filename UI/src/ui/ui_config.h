@@ -61,7 +61,6 @@
 /* Los dígitos '0'…'9' llegan a LVGL como su propio carácter (campo de ID en Perfil). */
 
 /* ---- Pantallas ---- */
-#define UI_SEND_MSG_MS               5000u     /* "Enviando datos..." en ScreenEnding */
 #define UI_PROFILE_ID_CHARS          "0123456789"  /* Lo único que acepta el ID de usuario */
 
 /* ---- Wi-Fi (hal_wifi y pantalla Wifi, los dos en el core 1) ---- */
