@@ -128,6 +128,7 @@ set(REDUX_UI_PANEL_UISOURCES
         ${REDUX_UI_DIR}/src/hal/hal_keypad.c
         ${REDUX_UI_DIR}/src/hal/hal_keypad_logic.c
         ${REDUX_UI_DIR}/src/hal/hal_wifi.c
+        ${REDUX_UI_DIR}/src/hal/hal_api.c
         ${REDUX_UI_DIR}/src/ui/st7735.c
         ${REDUX_UI_DIR}/src/ui/lv_port_disp.c
         ${REDUX_UI_DIR}/src/ui/lv_port_indev.c
