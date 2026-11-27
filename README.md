@@ -1,5 +1,5 @@
-<div align="center">
-<img src="Logotipo.png" alt="Logo proyecto REDUX" width="25%"/>
+2<div align="center">
+<img src="Docs/Logotipo.png" alt="Logo proyecto REDUX" width="25%"/>
 </div>
 
 <div align="center">
@@ -9,7 +9,7 @@
 </div>
 
 <div align="center">
-<img src="WhatsApp Image 2026-11-25 at 15.00.30.jpeg" alt="Equipo y prototipo REDUX" width="75%"/>
+<img src="Docs/Equipo REDUX.jpeg" alt="Equipo y prototipo REDUX" width="75%"/>
 </div>
 
 ## 🔗 Repositorio y Redes:
